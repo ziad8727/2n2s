@@ -195,7 +195,8 @@ function joinServerClient(){
     })
     serverConnection.on('end', (r)=>{
         log('[WARN]'.bold.yellow, 'Disconnected:', r);
-        if (clientConnection)clientConnection.end('\u00A76Connection Lost.') // temporary
+        if (clientConnection)clientConnection.end('\u00A76Connection Lost.');
+        if (state=='finished')DMNotif(`You got disconnected!!`);
         if(state!='stopped'&&state!=='reconnecting')stop(true);
     })
     serverConnection.on('packet', (packet, meta, raw)=>{
@@ -206,6 +207,7 @@ function joinServerClient(){
         switch(meta.name){
             case 'playerlist_header':
                 if (host!='2b2t.org')break;
+                if (state=='finished')break;
                 let msg = JSON.parse(packet.header);
                 let posi = msg.text.split("\n")[5].substring(25);
                 if (posi!='None'&&posi!=pos){
@@ -229,6 +231,7 @@ function joinServerClient(){
                 break;
             case 'chat':
                 if (host!='2b2t.org')break;
+                if (state=='finished')break;
                 let sz = JSON.parse(packet.message);
                 if(sz.extra){
                     let posi = Number(sz.extra[1].text);
@@ -238,6 +241,14 @@ function joinServerClient(){
                         log('[INFO]'.green, 'Queue threshold passed.');
                     }
                 };
+                if (sz.text&&sz.text==='Connecting to the server...'){
+                    state='finished';
+                    updateAct();
+                    log('[INFO]'.green, 'FINISHED!');
+                    pos = 0;
+                    eta = 'NOW';
+                    DMNotif(`The queue is complete, your pos is \`${pos}\` with eta \`${eta}\``);
+                }
                 break;
             case 'kick_disconnect':
                 log('[WARN]'.bold.yellow, 'Kicked for', JSON.parse(packet.reason).text);
