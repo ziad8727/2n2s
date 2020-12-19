@@ -6,7 +6,6 @@ const secrets = require("../secrets");
 let state = 'stopped';
 let eta = null;
 let pos = null;
-let neta = null;
 
 let reconnectAttempts = 0;
 
@@ -16,17 +15,53 @@ let auxConnection = null;
 let proxyServer = null;
 
 let oldState = null;
+let twTime = null;
+let isClose = false;
 
 let serverCache = {
     chunks: new Map(),
     inventory: {},
     abilities: null,
     loginPacket: null,
-    posPacket: null 
+    posPacket: null,
+    playerInfo: null
 }
 
 function startCache(){
 
+}
+
+function releaseCache(){
+
+}
+
+function parseCommand(cmd){
+    function reply(txt){
+        clientConnection.write('chat', {position: 1, message: JSON.stringify({text: txt})});
+    }
+    let args = cmd.split(/ +/g);
+    cmd = args.shift();
+    if (cmd=='ping'){
+        reply('pong!');
+    }
+}
+
+function clientToServer(raw, meta, pk){
+    if (meta.name=='chat'){
+        let msg = JSON.parse(pk.message);
+        if (msg.text.startsWith('?')){
+            return parseCommand(msg.text);
+        }
+    }
+    if (meta.name !== "keep_alive" && meta.name !== "update_time"){
+        serverConnection.writeRaw(raw);
+    }
+}
+
+function serverToClient(raw, meta){
+    if (meta.name !== "keep_alive" && meta.name !== "update_time"){
+        clientConnection.writeRaw(raw);
+    }
 }
 
 function updateAct(){
@@ -36,7 +71,7 @@ function updateAct(){
     }
     if (bot){
         if (state=='waiting'){
-            bot.editAct('pos: '+pos+' | eta: '+eta+' | 2n2s');
+            bot.editAct('pos: '+pos+' | eta: '+eta);
         }else{
             bot.editAct('2n2s - state: '+state);
         }
@@ -47,7 +82,6 @@ function updateAct(){
         state,
         pos,
         eta,
-        neta
     }
 }
 
@@ -81,28 +115,77 @@ function createServer(){
         }
     });
     proxyServer.on('login', (client)=>{
-        return client.end('\u00A76Not whitelisted.') // temporary
+        if (!serverConnection)return client.end('\u00A76Server connection nonexistent');
         clientConnection = client;
+        releaseCache();
     })
+}
+
+async function DMNotif(txt){
+    if (!config.discord.notifications.enabled)return;
+    let channel = await bot.getDMChannel(config.discord.userID);
+    bot.createMessage(channel.id, txt);
 }
 
 function joinServerClient(){
     serverConnection = minecraft.createClient({
         host: '2b2t.org', // allow to change this?
         username: secrets.mc.email,
-        password: secrets.mc.password
+        password: secrets.mc.password,
+        version: '1.12.2'
     })
     serverConnection.on('error', (e)=>{
         log('[ERR ]'.bold.red, e.toString());
     })
     serverConnection.on('end', (r)=>{
         log('[WARN]'.bold.yellow, 'Disconnected:', r);
-        stop();
+        if (clientConnection)clientConnection.end('\u00A76Connection Lost.') // temporary
+        if(state!='stopped'&&state!=='reconnecting')stop(true);
     })
     serverConnection.on('packet', (packet, meta, raw)=>{
-        console.log(meta);
-        if (meta.name=='kick_disconnect'){
-            console.log(packet);
+        if (state == 'clientConnecting'){
+            state = 'queueWaiting';
+            updateAct();
+        }
+        switch(meta.name){
+            case 'playerlist_header':
+                let msg = JSON.parse(packet.header);
+                let posi = msg.text.split("\n")[5].substring(25);
+                if (posi!='None'&&posi!=pos){
+                    pos = posi;
+                    if (!twTime){
+                        twTime = pos / 2;
+                    }
+                    let tpTime = -(pos / 2) + twTime;
+                    let eh = twTime - tpTime;
+                    eta = Math.floor(eh / 60) + "h " + Math.floor(eh % 60) + "m";
+                    log('[WAIT]'.blue, `pos: ${pos}, eta: ${eta}`);     
+                    updateAct();    
+                }
+                if (state=='queueWaiting'){
+                    if (pos&&eta){
+                        state = 'waiting';
+                        updateAct();
+                    }
+                }
+                break;
+            case 'chat':
+                let sz = JSON.parse(packet.message);
+                if(sz.extra){
+                    let posi = Number(sz.extra[1].text);
+                    if (posi<=config.discord.notifications.queuePos&&!isClose){
+                        isClose=true;
+                        DMNotif(`The queue is nearly complete, your pos is \`${posi}\` with eta \`${eta}\``);
+                        log('[INFO]'.green, 'Queue threshold passed.');
+                    }
+                };
+                break;
+            case 'kick_disconnect':
+                log('[WARN]'.bold.blue, 'Kicked for', JSON.parse(packet.reason).text);
+                break;
+        }
+        if (clientConnection){
+            serverToClient(raw, meta);
         }
     })
 }
@@ -117,17 +200,37 @@ function start(){
     updateAct();
     joinServerClient();
 }
-function stop(){
+function stop(isReconStop){
     // End the queue
     log('[INFO]'.green, `Stopping queue.`);
-    proxyServer.close();
+    if(proxyServer)proxyServer.close();
     proxyServer = null;
-    serverConnection.end();
+    state = isReconStop?'reconnecting':'stopped';
+    if(serverConnection)serverConnection.end();
     serverConnection = null;
-    state = 'stopped';
     updateAct();
-    oldState = null;
-    log('[INFO]'.green, 'Stopped queue.')
+    if(!isReconStop)oldState = null;
+    twTime = null;
+    serverCache = {
+        chunks: new Map(),
+        inventory: {},
+        abilities: null,
+        loginPacket: null,
+        posPacket: null 
+    }
+    log('[INFO]'.green, 'Stopped queue.');
+    if (isReconStop){
+        reconnectAttempts++;
+        let time = reconnectAttempts*30;
+        if (time>120)time=120;
+        log('[INFO]'.green, `Reconnecting in ${time}s...`);
+        setTimeout(()=>{
+            log('[INFO]'.green, `Reconnecting...`);
+            start();
+        }, time*1000)
+    }else{
+        reconnectAttempts = 0;
+    }
 }
 
 global.proxy = {
@@ -136,5 +239,4 @@ global.proxy = {
     state,
     pos,
     eta,
-    neta
 }

@@ -19,7 +19,7 @@ bot.on("messageCreate", (msg) => {
             }
         }
         if (cmd=='info'){
-            bot.createMessage(msg.channel.id, `**2n2s information**\n\nState: \`${proxy.state}\`\nPosition: ${proxy.pos?'`'+proxy.pos+'`':'`none`'}\nCalculated ETA: ${proxy.eta?'`'+proxy.eta+'`':'`none`'}\n2b2t ETA: ${proxy.neta?'`'+proxy.neta+'`':'`none`'}`)
+            bot.createMessage(msg.channel.id, `**2n2s information**\n\nState: \`${proxy.state}\`\nPosition: ${proxy.pos?'`'+proxy.pos+'`':'`none`'}\nCalculated ETA: ${proxy.eta?'`'+proxy.eta+'`':'`none`'}`)
         }
     }
 });
