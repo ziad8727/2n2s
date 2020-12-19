@@ -147,6 +147,7 @@ function genMotd(){
         'Proxy connections disabled due to an exploit.',
         'welcome to die',
         'Everyone is a shit',
+        'Real life sucks anyway!',
         'eat shit and die', // Funny
         '\u00A74Can\'t connect to server'
     ]
