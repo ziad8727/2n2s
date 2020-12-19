@@ -74,7 +74,7 @@ function releaseCache(){
     clientConnection.writeRaw(serverCache.posPacket);
     clientConnection.writeRaw(serverCache.abilities);
     clientConnection.writeRaw(serverCache.playerInfo);
-    serverCache.inventory.forEach((slot)=>{
+    if(serverCache.inventory.forEach)serverCache.inventory.forEach((slot)=>{
         if(slot != null) {
             clientConnection.write("set_slot", slot);
         }
