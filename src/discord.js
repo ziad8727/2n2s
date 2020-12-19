@@ -27,4 +27,4 @@ bot.connect();
 bot.editAct = (a)=>{
     bot.editStatus("online", {name: a, type: 3});
 }
-module.exports = bot;
+global.bot = bot;
