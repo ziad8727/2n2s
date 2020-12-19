@@ -1,0 +1,19 @@
+{
+  "name": "2n2s",
+  "version": "1.0.0",
+  "description": "This is a proxy service which simply waits out the queue of 2b2t and even keep you connected if you get disconnected for any reason.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ziad8727/2n2s.git"
+  },
+  "author": "ziad87",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ziad8727/2n2s/issues"
+  },
+  "homepage": "https://github.com/ziad8727/2n2s#readme"
+}

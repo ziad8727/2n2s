@@ -1,7 +1,7 @@
 # 2nodes2seconds
 *Thanks to [2bored2wait](https://github.com/themoonisacheese/2bored2wait.git) for the inspiration*
 
-This is a proxy service which simply waits out the queue and even keep you connected if you get disconnected for any reason.
+This is a proxy service which simply waits out the queue of 2b2t and even keep you connected if you get disconnected for any reason.
 
 # Installation
 1. You'll need to install node.js (tested with v14.13.0, your mileage may vary)
