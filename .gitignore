@@ -1,0 +1,4 @@
+# Ignore certain stuff
+node_modules
+config.js
+secrets.js

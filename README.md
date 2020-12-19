@@ -1,4 +1,4 @@
-# 2nodes2seconds
+# 2nodes2seconds (2n2s)
 *Thanks to [2bored2wait](https://github.com/themoonisacheese/2bored2wait.git) for the inspiration*
 
 This is a proxy service which simply waits out the queue of 2b2t and even keep you connected if you get disconnected for any reason.

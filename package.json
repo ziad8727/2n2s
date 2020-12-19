@@ -15,5 +15,11 @@
   "bugs": {
     "url": "https://github.com/ziad8727/2n2s/issues"
   },
-  "homepage": "https://github.com/ziad8727/2n2s#readme"
+  "homepage": "https://github.com/ziad8727/2n2s#readme",
+  "dependencies": {
+    "colors": "^1.4.0",
+    "eris": "^0.14.0",
+    "minecraft-protocol": "^1.21.0",
+    "moment": "^2.29.1"
+  }
 }
