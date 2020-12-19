@@ -3,7 +3,7 @@ var bot = new Eris(secrets.discordToken, {intents:4609});
 let prefix = config.discord.prefix;
 bot.on("ready", () => {
     log('[DISC]'.cyan, 'Connected.');
-    bot.editAct('2n2s')
+    bot.editAct('2n2s - state: stopped');
 });
 bot.on("messageCreate", (msg) => {
     if (msg.author.id==config.discord.userID&&msg.content.startsWith(prefix)){
@@ -11,8 +11,12 @@ bot.on("messageCreate", (msg) => {
         let cmd = args.shift().toLowerCase();
         log('[DISC]'.cyan, 'cmd='+cmd, 'args='+args.join(','));
         if (cmd=='start'){
-            proxy.start();
-            bot.createMessage(msg.channel.id, 'Started the queue');
+            if (proxy.state=='stopped'){
+                proxy.start();
+                bot.createMessage(msg.channel.id, 'Started the queue');
+            }else{
+                bot.createMessage(msg.channel.id, 'Queue already started');
+            }
         }
         if (cmd=='info'){
             bot.createMessage(msg.channel.id, `**2n2s information**\n\nState: \`${proxy.state}\`\nPosition: ${proxy.pos?'`'+proxy.pos+'`':'`none`'}\nCalculated ETA: ${proxy.eta?'`'+proxy.eta+'`':'`none`'}\n2b2t ETA: ${proxy.neta?'`'+proxy.neta+'`':'`none`'}`)

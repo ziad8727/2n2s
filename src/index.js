@@ -13,6 +13,8 @@ try{
     process.exit(1);
 }
 
-global.proxy = require('./proxy.js');
+require('./proxy.js');
 if (config.discord.enabled)global.bot = require('./discord.js');
 //if (config.web.enabled)global.web = require('./web.js');
+
+if (config.misc.queueOnStart)proxy.start();
