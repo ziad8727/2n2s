@@ -20,19 +20,70 @@ let isClose = false;
 
 let serverCache = {
     chunks: new Map(),
-    inventory: {},
+    inventory: [],
     abilities: null,
     loginPacket: null,
     posPacket: null,
     playerInfo: null
 }
 
-function startCache(){
+let host = '2b2t.org'
 
+function startCache(){
+    serverConnection.on('packet', (packet, meta, raw)=>{
+        switch (meta.name) {
+            case "map_chunk":
+                if(config.misc.chunkCache)serverCache.chunks.set(packet.x + "-" + packet.z, raw);
+                break;
+            case "unload_chunk":
+                if(config.misc.chunkCache)serverCache.chunks.delete(packet.chunkX + "_" + packet.chunkZ);
+                break;
+            case "respawn":
+                Object.assign(serverCache.loginPacket, packet);
+                chunkData = new Map();
+                inventory = [];
+                break;
+            case "login":
+                serverCache.loginPacket = packet;
+                break;
+            case "game_state_change":
+                serverCache.loginPacket.gameMode = packet.gameMode;
+                break;
+            case "abilities":
+                serverCache.abilities = raw;
+                break;
+            case "position":
+                serverCache.posPacket = raw;
+                break;
+            case "set_slot":
+                if(packet.windowId == 0) { 
+                    serverCache.inventory[packet.slot] = packet;
+                }
+                break;
+            case 'player_info':
+                if (packet.action == 0){
+                    serverCache.playerInfo = raw;
+                }
+                break;
+        }
+    });
 }
 
 function releaseCache(){
-
+    clientConnection.write('login', serverCache.loginPacket);
+    clientConnection.writeRaw(serverCache.posPacket);
+    clientConnection.writeRaw(serverCache.abilities);
+    clientConnection.writeRaw(serverCache.playerInfo);
+    serverCache.inventory.forEach((slot)=>{
+        if(slot != null) {
+            clientConnection.write("set_slot", slot);
+        }
+    });
+    setTimeout(()=>{
+        if(config.misc.chunkCache)serverCache.chunks.forEach((data) => {
+            clientConnection.writeRaw(data);
+        });
+    }, 1000);
 }
 
 function parseCommand(cmd){
@@ -43,14 +94,15 @@ function parseCommand(cmd){
     cmd = args.shift();
     if (cmd=='ping'){
         reply('pong!');
+    }else{
+        reply('Unknown command.')
     }
 }
 
 function clientToServer(raw, meta, pk){
     if (meta.name=='chat'){
-        let msg = JSON.parse(pk.message);
-        if (msg.text.startsWith('?')){
-            return parseCommand(msg.text);
+        if (pk.message.startsWith('?')){
+            return parseCommand(pk.message.substring(1));
         }
     }
     if (meta.name !== "keep_alive" && meta.name !== "update_time"){
@@ -71,7 +123,7 @@ function updateAct(){
     }
     if (bot){
         if (state=='waiting'){
-            bot.editAct('pos: '+pos+' | eta: '+eta);
+            bot.editStatus("online", {name: 'pos: '+pos+' | eta: '+eta, type: 3});
         }else{
             bot.editAct('2n2s - state: '+state);
         }
@@ -103,8 +155,8 @@ function genMotd(){
 
 function createServer(){
     proxyServer = minecraft.createServer({ // create a server for us to connect to
-		'online-mode': true,
-		encryption: true,
+		'online-mode': false,
+		encryption: false,
 		host: '0.0.0.0',
 		port: config.server.port,
 		version: '1.12.2',
@@ -118,6 +170,9 @@ function createServer(){
         if (!serverConnection)return client.end('\u00A76Server connection nonexistent');
         clientConnection = client;
         releaseCache();
+        clientConnection.on('packet', (packet, meta, raw)=>{
+            clientToServer(raw, meta, packet);
+        })
     })
 }
 
@@ -129,7 +184,7 @@ async function DMNotif(txt){
 
 function joinServerClient(){
     serverConnection = minecraft.createClient({
-        host: '2b2t.org', // allow to change this?
+        host: host, // allow to change this?
         username: secrets.mc.email,
         password: secrets.mc.password,
         version: '1.12.2'
@@ -149,6 +204,7 @@ function joinServerClient(){
         }
         switch(meta.name){
             case 'playerlist_header':
+                if (host!='2b2t.org')break;
                 let msg = JSON.parse(packet.header);
                 let posi = msg.text.split("\n")[5].substring(25);
                 if (posi!='None'&&posi!=pos){
@@ -166,10 +222,12 @@ function joinServerClient(){
                     if (pos&&eta){
                         state = 'waiting';
                         updateAct();
+                        DMNotif(`The queue has started, your pos is \`${posi}\` with eta \`${eta}\``);
                     }
                 }
                 break;
             case 'chat':
+                if (host!='2b2t.org')break;
                 let sz = JSON.parse(packet.message);
                 if(sz.extra){
                     let posi = Number(sz.extra[1].text);
@@ -181,13 +239,14 @@ function joinServerClient(){
                 };
                 break;
             case 'kick_disconnect':
-                log('[WARN]'.bold.blue, 'Kicked for', JSON.parse(packet.reason).text);
+                log('[WARN]'.bold.yellow, 'Kicked for', JSON.parse(packet.reason).text);
                 break;
         }
         if (clientConnection){
             serverToClient(raw, meta);
         }
     })
+    startCache();
 }
 
 function start(){
