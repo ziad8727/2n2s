@@ -14,11 +14,12 @@ module.exports = {
         notifications: {
             enabled: true, // Enable DM notifications
             queuePos: 20 // On this position, send a DM saying you should join now
-        }
+        },
+        prefix: '2n' // Bot prefix
     },
     misc: {
         log: true, // Enable logging to console?
-        queueOnStart: false, // Start queuing on startup
+        queueOnStart: false, // Start queuing on startup. This has to be enabled if web and discord are disabled.
         reconnectOnMiss: false, // If you are not present when the server connects you in, reconnect to start the queue again
         antiAFK: true, // Some kind of anti afk system. Don't count on it working well.
         chunkCache: true // Cache the map and other things. Recommended that you don't touch this.

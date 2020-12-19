@@ -1,6 +1,6 @@
 {
   "name": "2n2s",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "This is a proxy service which simply waits out the queue of 2b2t and even keep you connected if you get disconnected for any reason.",
   "main": "index.js",
   "scripts": {
@@ -19,6 +19,7 @@
   "dependencies": {
     "colors": "^1.4.0",
     "eris": "^0.14.0",
+    "express": "^4.17.1",
     "minecraft-protocol": "^1.21.0",
     "moment": "^2.29.1"
   }
