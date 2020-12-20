@@ -120,7 +120,7 @@ function parseCommand(cmd){
                 reply('&b'+k);
             }
         }catch(e){
-            z = e.stack.toString().split('\n');
+            z = e.toString().split('\n');
             for (var k of z){
                 reply('&4'+k);
             }
@@ -347,6 +347,7 @@ function stop(isReconStop){
     proxyServer = null;
     state = isReconStop?'reconnecting':'stopped';
     if(serverConnection)serverConnection.end();
+    if(auxConnection)auxConnection.end();
     serverConnection = null;
     updateAct();
     if(!isReconStop)oldState = null;
