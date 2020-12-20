@@ -1,4 +1,5 @@
 let Eris = require('eris');
+const config = require('../config');
 var bot = new Eris(secrets.discordToken, {intents:4609});
 let prefix = config.discord.prefix;
 bot.on("ready", () => {
@@ -20,6 +21,12 @@ bot.on("messageCreate", (msg) => {
         }
         if (cmd=='info'){
             bot.createMessage(msg.channel.id, `**2n2s information**\n\nState: \`${proxy.state}\`\nPosition: ${proxy.pos?'`'+proxy.pos+'`':'`none`'}\nCalculated ETA: ${proxy.eta?'`'+proxy.eta+'`':'`none`'}`)
+        }
+        if (cmd=='eval'&&config.misc.allowEval){
+            bot.createMessage(msg.channel.id, '```'+eval(args.join(' ')).toString()+'```');
+        }
+        if (cmd=='evalProxy'&&config.misc.allowEval){
+            bot.createMessage(msg.channel.id, '```'+eval(args.join(' ')).toString()+'```');
         }
     }
 });

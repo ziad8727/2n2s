@@ -18,3 +18,7 @@ if (config.discord.enabled)require('./discord.js');
 //if (config.web.enabled)global.web = require('./web.js');
 
 if (config.misc.queueOnStart)proxy.start();
+
+process.on('uncaughtException', (e)=>{
+    log('[ERR ]'.bold.red, e);
+})

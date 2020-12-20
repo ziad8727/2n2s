@@ -1,5 +1,6 @@
 const config = require("../config");
 const minecraft = require('minecraft-protocol');
+const tokens = require('prismarine-tokens-fixed');
 const secrets = require("../secrets");
 
 // 2b2t proxy service
@@ -27,6 +28,8 @@ let serverCache = {
     playerInfo: null
 }
 
+let parseChat = require('./chatParser.js');
+
 let host = '2b2t.org'
 
 function startCache(){
@@ -36,7 +39,7 @@ function startCache(){
                 if(config.misc.chunkCache)serverCache.chunks.set(packet.x + "-" + packet.z, raw);
                 break;
             case "unload_chunk":
-                if(config.misc.chunkCache)serverCache.chunks.delete(packet.chunkX + "_" + packet.chunkZ);
+                if(config.misc.chunkCache)serverCache.chunks.delete(packet.chunkX + "-" + packet.chunkZ);
                 break;
             case "respawn":
                 Object.assign(serverCache.loginPacket, packet);
@@ -48,6 +51,7 @@ function startCache(){
                 break;
             case "game_state_change":
                 serverCache.loginPacket.gameMode = packet.gameMode;
+                serverCache.loginPacket.prevGameMode = packet.gameMode;
                 break;
             case "abilities":
                 serverCache.abilities = raw;
@@ -134,6 +138,7 @@ function updateAct(){
         state,
         pos,
         eta,
+        evalu
     }
 }
 
@@ -168,8 +173,11 @@ function createServer(){
         }
     });
     proxyServer.on('login', (client)=>{
+        if (config.server.whitelist&&(client.uuid!==serverConnection.uuid))return client.end('\u00A76Unauthorized');
         if (!serverConnection)return client.end('\u00A76Server connection nonexistent');
-        //if (config.server.whitelist&&(client.uuid!==serverConnection.uuid))return client.end('\u00A76Unauthorized');
+        if (!(state=='queueWaiting'||state=='waiting'||state=='finished')){
+            return client.end('\u00A76Invalid state set');
+        }
         clientConnection = client;
         releaseCache();
         clientConnection.on('packet', (packet, meta, raw)=>{
@@ -184,13 +192,8 @@ async function DMNotif(txt){
     bot.createMessage(channel.id, txt);
 }
 
-function joinServerClient(){
-    serverConnection = minecraft.createClient({
-        host: host, // allow to change this?
-        username: secrets.mc.email,
-        password: secrets.mc.password,
-        version: '1.12.2'
-    })
+function joinServerClient(opts){
+    serverConnection = minecraft.createClient(opts);
     serverConnection.on('error', (e)=>{
         log('[ERR ]'.bold.red, e.toString());
     })
@@ -224,6 +227,7 @@ function joinServerClient(){
                 }
                 if (state=='queueWaiting'){
                     if (pos&&eta){
+                        reconnectAttempts = 0;
                         state = 'waiting';
                         updateAct();
                         DMNotif(`The queue has started, your pos is \`${posi}\` with eta \`${eta}\``);
@@ -244,11 +248,11 @@ function joinServerClient(){
                 };
                 if (sz.text&&sz.text==='Connecting to the server...'){
                     state='finished';
-                    updateAct();
                     log('[INFO]'.green, 'FINISHED!');
                     pos = 0;
                     eta = 'NOW';
                     DMNotif(`The queue is complete, your pos is \`${pos}\` with eta \`${eta}\``);
+                    updateAct();
                 }
                 break;
             case 'kick_disconnect':
@@ -262,15 +266,34 @@ function joinServerClient(){
     startCache();
 }
 
+function authClient(){
+    let opts = {
+        host: host, // allow to change this?
+        username: secrets.mc.email,
+        password: secrets.mc.password,
+        version: '1.12.2',
+        tokensLocation: './data/mctokens.json'
+    };
+    tokens.use(opts, (err, _opts)=>{
+        if (err){
+            log('[ERR ]'.bold.red, 'Invalid MC credentials!\n', err);
+            return stop();
+        }
+        state = 'clientConnecting';
+        updateAct();
+        joinServerClient(_opts);
+    })
+}
+
 function start(){
     // Start the queue
     log('[INFO]'.green, `Starting queue.`);
     state = 'serverStarting'
     updateAct();
     createServer();
-    state = 'clientConnecting'
+    state = 'authenticating'
     updateAct();
-    joinServerClient();
+    authClient();
 }
 function stop(isReconStop){
     // End the queue
@@ -283,6 +306,7 @@ function stop(isReconStop){
     updateAct();
     if(!isReconStop)oldState = null;
     twTime = null;
+    isClose = false;
     serverCache = {
         chunks: new Map(),
         inventory: {},
@@ -305,10 +329,15 @@ function stop(isReconStop){
     }
 }
 
+function evalu(e){
+    return eval(e);
+}
+
 global.proxy = {
     start,
     stop, 
     state,
     pos,
     eta,
+    evalu
 }
