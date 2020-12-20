@@ -84,19 +84,19 @@ function startCache(connection, cache){
     });
 }
 
-function releaseCache(connection, cache){
+function releaseCache(connection, cache, noLogin){
     if (state=='finished')loginPacket.gameMode = 1;
-    connection.write('login', cache.loginPacket);
-    connection.writeRaw(cache.posPacket);
-    connection.writeRaw(cache.abilities);
-    connection.writeRaw(cache.playerInfo);
-    if(cache.inventory.forEach)cache.inventory.forEach((slot)=>{
+    if(!noLogin)connection.write('login', cache.loginPacket);
+    if(cache.posPacket)connection.writeRaw(cache.posPacket);
+    if(cache.abilites)connection.writeRaw(cache.abilities);
+    if(cache.playerInfo)connection.writeRaw(cache.playerInfo);
+    if(cache.inventory&&cache.inventory.forEach)cache.inventory.forEach((slot)=>{
         if(slot != null) {
             connection.write("set_slot", slot);
         }
     });
     setTimeout(()=>{
-        if(config.misc.chunkCache)cache.chunks.forEach((data) => {
+        if(config.misc.chunkCache&&cache.chunks)cache.chunks.forEach((data) => {
             connection.writeRaw(data);
         });
         if (state=='finished'){
@@ -134,19 +134,22 @@ function joinAuxServer(ip){
                 reply('&4You got disconnected!');
             }
         });
+        startCache(auxConnection, auxCache);
         auxConnection.on('packet', (packet, meta, raw)=>{
             if (meta.name=='kick_disconnect'){
                 return reply('&eYou got kicked for \''+JSON.parse(packet.reason).text+"'");
             }
             if (!redirAuxPackets){
                 if (auxCache.loginPacket){
-                    client.write('respawn', {
+                    clientConnection.write('respawn', {
                         dimension: auxCache.loginPacket.dimension,
                         difficulty: auxCache.loginPacket.difficulty,
-                        gamemode: aux.loginPacket.gameMode,
-                        levelType: aux.loginPacket.levelType
+                        gamemode: auxCache.loginPacket.gameMode,
+                        levelType: auxCache.loginPacket.levelType
                     })
                     redirAuxPackets = true;
+                    releaseCache(auxConnection, auxCache, true);
+                    log('[CONN]'.green, 'Connected to', ip+'!');
                 }
             }else{
                 if (meta.name !== "keep_alive" && meta.name !== "update_time"){
@@ -154,7 +157,6 @@ function joinAuxServer(ip){
                 }
             }
         });
-        startCache(auxConnection, auxCache);
     }, ()=>{
         reply('&4Error during Minecraft authentication');
         log('[CONN]'.green, '[WARN]'.bold.yellow, 'Failed MC auth..');
@@ -163,6 +165,7 @@ function joinAuxServer(ip){
 }
 
 function disconnectAux(){
+    log('[CONN]'.green, 'Disconnected.');
     redirAuxPackets = false;
     if(auxConnection)auxConnection.end();
     auxEnabled = false;
@@ -178,9 +181,10 @@ function disconnectAux(){
 }
 
 function returnTo2b(){
+    log('[CONN]'.green, 'Returning to 2b...');
     auxEnabled = false;
     redirAuxPackets = false;
-    client.write('respawn', {
+    clientConnection.write('respawn', {
         dimension: serverCache.loginPacket.dimension,
         difficulty: serverCache.loginPacket.difficulty,
         gamemode: serverCache.loginPacket.gameMode,
@@ -399,6 +403,7 @@ function joinServerClient(opts){
                         DMNotif(`The queue is nearly complete, your pos is \`${posi}\` with eta \`${eta}\``);
                         log('[INFO]'.green, 'Queue threshold passed.');
                     }
+                    if(redirAuxPackets)reply('&6Position in queue: &l'+posi);
                 };
                 if (sz.text&&sz.text==='Connecting to the server...'){
                     state='finished';
