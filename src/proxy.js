@@ -2,6 +2,10 @@ const config = require("../config");
 const minecraft = require('minecraft-protocol');
 const tokens = require('prismarine-tokens-fixed');
 const secrets = require("../secrets");
+const mcData = require('minecraft-data')('1.12.2');
+const Chunk = require('prismarine-chunk')('1.12.2');
+const Vec3 = require('vec3');
+const parseChat = require('./chatParser.js');
 
 // 2b2t proxy service
 let state = 'stopped';
@@ -39,7 +43,16 @@ let auxEnabled = false;
 let redirAuxPackets = false;
 let auxConnection = null;
 
-let parseChat = require('./chatParser.js');
+let airChunk = new Chunk();
+for (let x = 0; x < 16; x++) {
+    for (let z = 0; z < 16; z++) {
+        for (let y = 0; y < 256; y++) {
+            airChunk.setBlockType(new Vec3(x, y, z), mcData.blocksByName.air.id);
+            airChunk.setSkyLight(new Vec3(x, y, z), 0);
+        }
+    }
+}
+
 
 let host = '2b2t.org'
 
@@ -109,6 +122,17 @@ function reply(txt){
     if(clientConnection)clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
 }
 
+function sendAirChunk(){
+    if(clientConnection)clientConnection.write('map_chunk', {
+        x: 0,
+        z: 0,
+        groundUp: true, 
+        bitMap: airChunk.getMask(),
+        chunkData: airChunk.dump(),
+        blockEntities: []
+    })
+}
+
 function joinAuxServer(ip){
     if (ip.endsWith('2b2t.org'))return reply('&4No');
     auxEnabled = true;
@@ -148,7 +172,7 @@ function joinAuxServer(ip){
                         levelType: auxCache.loginPacket.levelType
                     })
                     redirAuxPackets = true;
-                    releaseCache(auxConnection, auxCache, true);
+                    releaseCache(clientConnection, auxCache, true);
                     log('[CONN]'.green, 'Connected to', ip+'!');
                 }
             }else{
@@ -191,6 +215,8 @@ function returnTo2b(){
         levelType: serverCache.loginPacket.levelType
     })
     disconnectAux();
+    releaseCache(clientConnection, serverCache, true);
+    sendAirChunk();
 }
 
 function parseCommand(cmd){
