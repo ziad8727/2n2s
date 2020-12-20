@@ -150,12 +150,14 @@ function joinAuxServer(ip){
             log('[CONN]'.green,'[ERR ]'.bold.red, e.toString());
             if(redirAuxPackets)returnTo2b();
             reply('&4Something went wrong with your connection');
+            auxEnabled = false;
         });
         auxConnection.on('end', (r)=>{
             if (auxEnabled){
                 log('[CONN]'.green, '[WARN]'.bold.yellow, 'Disconnected:', r);
                 if(redirAuxPackets)returnTo2b();
                 reply('&4You got disconnected!');
+                auxEnabled = false;
             }
         });
         startCache(auxConnection, auxCache);
