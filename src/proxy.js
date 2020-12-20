@@ -12,13 +12,11 @@ let reconnectAttempts = 0;
 
 let serverConnection = null;
 let clientConnection = null;
-let auxConnection = null;
 let proxyServer = null;
 
 let oldState = null;
 let twTime = null;
 let isClose = false;
-let auxEnabled = false;
 
 let serverCache = {
     chunks: new Map(),
@@ -37,6 +35,9 @@ let auxCache = {
     posPacket: null,
     playerInfo: null
 }
+let auxEnabled = false;
+let redirAuxPackets = false;
+let auxConnection = null;
 
 let parseChat = require('./chatParser.js');
 
@@ -53,6 +54,7 @@ function startCache(connection, cache){
                 break;
             case "respawn":
                 Object.assign(cache.loginPacket, packet);
+                cache.loginPacket.gameMode = packet.gamemode
                 cache.chunks = new Map();
                 cache.inventory = [];
                 break;
@@ -61,7 +63,6 @@ function startCache(connection, cache){
                 break;
             case "game_state_change":
                 cache.loginPacket.gameMode = packet.gameMode;
-                cache.loginPacket.prevGameMode = packet.gameMode;
                 break;
             case "abilities":
                 cache.abilities = raw;
@@ -84,6 +85,7 @@ function startCache(connection, cache){
 }
 
 function releaseCache(connection, cache){
+    if (state=='finished')loginPacket.gameMode = 1;
     connection.write('login', cache.loginPacket);
     connection.writeRaw(cache.posPacket);
     connection.writeRaw(cache.abilities);
@@ -97,13 +99,97 @@ function releaseCache(connection, cache){
         if(config.misc.chunkCache)cache.chunks.forEach((data) => {
             connection.writeRaw(data);
         });
+        if (state=='finished'){
+            connection.write('game_state_change', {reason: 3, gameMode: 0});
+        }
     }, 1000);
 }
 
-function parseCommand(cmd){
-    function reply(txt){
-        clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
+function reply(txt){
+    if(clientConnection)clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
+}
+
+function joinAuxServer(ip){
+    if (ip.endsWith('2b2t.org'))return reply('&4No');
+    auxEnabled = true;
+    log('[CONN]'.green, 'Connecting to', ip);
+    log('[CONN]'.green, 'Authenticating into Minecraft');
+    authClient({
+        host: ip,
+        username: secrets.mc.email,
+        password: secrets.mc.password,
+        version: '1.12.2',
+        tokensLocation: './data/mctokens.json'
+    },(_opts)=>{
+        auxConnection = minecraft.createClient(_opts);
+        auxConnection.on('error', (e)=>{
+            log('[CONN]'.green,'[ERR ]'.bold.red, e.toString());
+            if(redirAuxPackets)returnTo2b();
+            reply('&4Something went wrong with your connection');
+        });
+        auxConnection.on('end', (r)=>{
+            if (auxEnabled){
+                log('[CONN]'.green, '[WARN]'.bold.yellow, 'Disconnected:', r);
+                if(redirAuxPackets)returnTo2b();
+                reply('&4You got disconnected!');
+            }
+        });
+        auxConnection.on('packet', (packet, meta, raw)=>{
+            if (meta.name=='kick_disconnect'){
+                return reply('&eYou got kicked for \''+JSON.parse(packet.reason).text+"'");
+            }
+            if (!redirAuxPackets){
+                if (auxCache.loginPacket){
+                    client.write('respawn', {
+                        dimension: auxCache.loginPacket.dimension,
+                        difficulty: auxCache.loginPacket.difficulty,
+                        gamemode: aux.loginPacket.gameMode,
+                        levelType: aux.loginPacket.levelType
+                    })
+                    redirAuxPackets = true;
+                }
+            }else{
+                if (meta.name !== "keep_alive" && meta.name !== "update_time"){
+                    clientConnection.writeRaw(raw);
+                }
+            }
+        });
+        startCache(auxConnection, auxCache);
+    }, ()=>{
+        reply('&4Error during Minecraft authentication');
+        log('[CONN]'.green, '[WARN]'.bold.yellow, 'Failed MC auth..');
+        auxEnabled = false;
+    });
+}
+
+function disconnectAux(){
+    redirAuxPackets = false;
+    if(auxConnection)auxConnection.end();
+    auxEnabled = false;
+    auxConnection = null;
+    auxCache = {
+        chunks: new Map(),
+        inventory: [],
+        abilities: null,
+        loginPacket: null,
+        posPacket: null,
+        playerInfo: null
     }
+}
+
+function returnTo2b(){
+    auxEnabled = false;
+    redirAuxPackets = false;
+    client.write('respawn', {
+        dimension: serverCache.loginPacket.dimension,
+        difficulty: serverCache.loginPacket.difficulty,
+        gamemode: serverCache.loginPacket.gameMode,
+        levelType: serverCache.loginPacket.levelType
+    })
+    disconnectAux();
+}
+
+function parseCommand(cmd){
     reply('&a> '+cmd);
     let args = cmd.split(/ +/g);
     cmd = args.shift().toLowerCase();
@@ -127,21 +213,41 @@ function parseCommand(cmd){
         }
     }else if (cmd=='help'){
         let msg = [
-            '&6---------------------',
+            '&6-----------------------------------------',
             '&72n2s Command List',
             '',
             '&ehelp&7: Show this list',
             '&eeval [js]&7: Evaluate JavaScript proxyside (config needed)',
             '&eping&7: pong!',
             '&eeta&7: Calculates an ETA differently',
+            '&eclear&7: Clears the chat',
             '&econnect [ip]&7: [&4Experimental&7] Connects you to another server',
-            '&6---------------------'
+            '&ereturn&7: [&4Experimental&7] Returns back to 2b2t and disconnects',
+            '&estop&7: &8Stops the queue. Be very careful!',
+            '&6-----------------------------------------'
         ];
         for (var k of msg){
             reply(k);
         }
     }else if (cmd=='eta'){
         reply('&6Estimated time: &l'+eta);
+    }else if (cmd=='clear'){
+        for (var k = 0; k < 256; k++){
+            reply(' ');
+        }
+    }else if (cmd=='connect'){
+        if (state=='finished')return reply('&4The 2b2t queue is already finished! what\'s the point?')
+        if (auxEnabled)return reply('&4You are already connected! Did you mean &7?return&4?');
+        if (!args[0])return reply('&4You need to specify an IP');
+        reply('&5Connecting to the server...');
+        setTimeout(()=>joinAuxServer(args[0]), 1000);
+    }else if (cmd=='return'){
+        if (!auxEnabled)return reply('&4You are not connected! Did you mean &7?connect [ip]&4?');
+        reply('&5Connecting to the server...');
+        setTimeout(returnTo2b, 1000);
+    }else if (cmd=='stop'){
+        reply('&5Stopping the queue...');
+        setTimeout(stop, 1000);
     }else{
         reply('&6Unknown command.')
     }
@@ -154,11 +260,12 @@ function clientToServer(raw, meta, pk){
         }
     }
     if (meta.name !== "keep_alive" && meta.name !== "update_time"){
-        serverConnection.writeRaw(raw);
+        (redirAuxPackets?auxConnection:serverConnection).writeRaw(raw);
     }
 }
 
 function serverToClient(raw, meta){
+    if (redirAuxPackets)return;
     if (meta.name !== "keep_alive" && meta.name !== "update_time"){
         clientConnection.writeRaw(raw);
     }
@@ -226,6 +333,9 @@ function createServer(){
         releaseCache(clientConnection, serverCache);
         clientConnection.on('packet', (packet, meta, raw)=>{
             clientToServer(raw, meta, packet);
+        })
+        clientConnection.on('end', ()=>{
+            if (auxEnabled)disconnectAux();
         })
     })
 }
@@ -297,6 +407,7 @@ function joinServerClient(opts){
                     eta = 'NOW';
                     DMNotif(`The queue is complete, your pos is \`${pos}\` with eta \`${eta}\``);
                     updateAct();
+                    if (auxEnabled)returnTo2b();
                 }
                 break;
             case 'kick_disconnect':
@@ -343,6 +454,7 @@ function start(){
 function stop(isReconStop){
     // End the queue
     log('[INFO]'.green, `Stopping queue.`);
+    if(clientConnection)clientConnection.end('\u00a76Queue was stopped');
     if(proxyServer)proxyServer.close();
     proxyServer = null;
     state = isReconStop?'reconnecting':'stopped';
@@ -353,12 +465,22 @@ function stop(isReconStop){
     if(!isReconStop)oldState = null;
     twTime = null;
     isClose = false;
+    auxEnabled = false;
+    redirAuxPackets = false;
     serverCache = {
         chunks: new Map(),
         inventory: {},
         abilities: null,
         loginPacket: null,
         posPacket: null 
+    }
+    auxCache = {
+        chunks: new Map(),
+        inventory: [],
+        abilities: null,
+        loginPacket: null,
+        posPacket: null,
+        playerInfo: null
     }
     log('[INFO]'.green, 'Stopped queue.');
     if (isReconStop){
