@@ -18,8 +18,18 @@ let proxyServer = null;
 let oldState = null;
 let twTime = null;
 let isClose = false;
+let auxEnabled = false;
 
 let serverCache = {
+    chunks: new Map(),
+    inventory: [],
+    abilities: null,
+    loginPacket: null,
+    posPacket: null,
+    playerInfo: null
+}
+
+let auxCache = {
     chunks: new Map(),
     inventory: [],
     abilities: null,
@@ -95,9 +105,9 @@ function parseCommand(cmd){
         clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
     }
     reply('&a> '+cmd);
-    log('[CMD ]'.cyan, 'cmd='+cmd, 'args='+args.join(','));
     let args = cmd.split(/ +/g);
-    cmd = args.shift();
+    cmd = args.shift().toLowerCase();
+    log('[CMD ]'.cyan, 'cmd='+cmd, 'args='+args.join(','));
     if (cmd=='ping'){
         reply('&1pong!');
     }else if (cmd=='eval'&&config.misc.allowEval){
@@ -121,14 +131,17 @@ function parseCommand(cmd){
             '&72n2s Command List',
             '',
             '&ehelp&7: Show this list',
-            '&eeval [js]&7: Evaluate JavaScript proxyside (needs to be enabled)',
+            '&eeval [js]&7: Evaluate JavaScript proxyside (config needed)',
             '&eping&7: pong!',
-            '&econnect [ip]&7: [&4Experimental&7] Connects you to another server while you\'re waiting',
+            '&eeta&7: Calculates an ETA differently',
+            '&econnect [ip]&7: [&4Experimental&7] Connects you to another server',
             '&6---------------------'
         ];
         for (var k of msg){
             reply(k);
         }
+    }else if (cmd=='eta'){
+        reply('&6Estimated time: &l'+eta);
     }else{
         reply('&6Unknown command.')
     }
@@ -297,22 +310,13 @@ function joinServerClient(opts){
     startCache(serverConnection, serverCache);
 }
 
-function authClient(){
-    let opts = {
-        host: host, // allow to change this?
-        username: secrets.mc.email,
-        password: secrets.mc.password,
-        version: '1.12.2',
-        tokensLocation: './data/mctokens.json'
-    };
+function authClient(opts, cb, errCb){
     tokens.use(opts, (err, _opts)=>{
         if (err){
             log('[ERR ]'.bold.red, 'Invalid MC credentials!\n', err);
-            return stop();
+            return errCb();
         }
-        state = 'clientConnecting';
-        updateAct();
-        joinServerClient(_opts);
+        cb(_opts);
     })
 }
 
@@ -324,7 +328,17 @@ function start(){
     createServer();
     state = 'authenticating'
     updateAct();
-    authClient();
+    authClient({
+        host: host, // allow to change this?
+        username: secrets.mc.email,
+        password: secrets.mc.password,
+        version: '1.12.2',
+        tokensLocation: './data/mctokens.json'
+    },(_opts)=>{
+        state = 'clientConnecting';
+        updateAct();
+        joinServerClient(_opts);
+    }, stop);
 }
 function stop(isReconStop){
     // End the queue
