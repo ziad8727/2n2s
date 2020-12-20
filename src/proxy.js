@@ -74,10 +74,10 @@ function startCache(connection, cache){
 }
 
 function releaseCache(connection, cache){
-    connection.write('login', serverCache.loginPacket);
-    connection.writeRaw(serverCache.posPacket);
-    connection.writeRaw(serverCache.abilities);
-    connection.writeRaw(serverCache.playerInfo);
+    connection.write('login', cache.loginPacket);
+    connection.writeRaw(cache.posPacket);
+    connection.writeRaw(cache.abilities);
+    connection.writeRaw(cache.playerInfo);
     if(cache.inventory.forEach)cache.inventory.forEach((slot)=>{
         if(slot != null) {
             connection.write("set_slot", slot);
@@ -95,6 +95,7 @@ function parseCommand(cmd){
         clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
     }
     reply('&a> '+cmd);
+    log('[CMD ]'.cyan, 'cmd='+cmd, 'args='+args.join(','));
     let args = cmd.split(/ +/g);
     cmd = args.shift();
     if (cmd=='ping'){
@@ -103,6 +104,7 @@ function parseCommand(cmd){
         try{
             let z = eval(args.join(' '));
             if (typeof z == 'object')z = require('util').inspect(z, {depth: 2});
+            if (z === undefined)z = 'undefined';
             z = z.toString().split('\n');
             for (var k of z){
                 reply('&b'+k);
@@ -112,6 +114,20 @@ function parseCommand(cmd){
             for (var k of z){
                 reply('&4'+k);
             }
+        }
+    }else if (cmd=='help'){
+        let msg = [
+            '&6---------------------',
+            '&72n2s Command List',
+            '',
+            '&ehelp&7: Show this list',
+            '&eeval [js]&7: Evaluate JavaScript proxyside (needs to be enabled)',
+            '&eping&7: pong!',
+            '&econnect [ip]&7: [&4Experimental&7] Connects you to another server while you\'re waiting',
+            '&6---------------------'
+        ];
+        for (var k of msg){
+            reply(k);
         }
     }else{
         reply('&6Unknown command.')
