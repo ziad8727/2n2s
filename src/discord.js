@@ -23,10 +23,22 @@ bot.on("messageCreate", (msg) => {
             bot.createMessage(msg.channel.id, `**2n2s information**\n\nState: \`${proxy.state}\`\nPosition: ${proxy.pos?'`'+proxy.pos+'`':'`none`'}\nCalculated ETA: ${proxy.eta?'`'+proxy.eta+'`':'`none`'}`)
         }
         if (cmd=='eval'&&config.misc.allowEval){
-            bot.createMessage(msg.channel.id, '```js\n'+eval(args.join(' ')).toString()+'```');
+            try{
+                let z = eval(args.join(' '));
+                if (typeof z == 'object')z = require('util').inspect(z, {depth: 2});
+                bot.createMessage(msg.channel.id, '```js\n'+z.toString()+'```');
+            }catch(e){
+                bot.createMessage(msg.channel.id, '```js\n'+e.toString()+'```');
+            }
         }
-        if (cmd=='evalProxy'&&config.misc.allowEval){
-            bot.createMessage(msg.channel.id, '```js\n'+eval(args.join(' ')).toString()+'```');
+        if (cmd=='evalproxy'&&config.misc.allowEval){
+            try{
+                let z = proxy.evalu(args.join(' '));
+                if (typeof z == 'object')z = require('util').inspect(z, {depth: 2});
+                bot.createMessage(msg.channel.id, '```js\n'+z.toString()+'```');
+            }catch(e){
+                bot.createMessage(msg.channel.id, '```js\n'+e.toString()+'```');
+            }
         }
     }
 });

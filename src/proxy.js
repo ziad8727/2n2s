@@ -32,74 +32,89 @@ let parseChat = require('./chatParser.js');
 
 let host = '2b2t.org'
 
-function startCache(){
-    serverConnection.on('packet', (packet, meta, raw)=>{
+function startCache(connection, cache){
+    connection.on('packet', (packet, meta, raw)=>{
         switch (meta.name) {
             case "map_chunk":
-                if(config.misc.chunkCache)serverCache.chunks.set(packet.x + "-" + packet.z, raw);
+                if(config.misc.chunkCache)cache.chunks.set(packet.x + "-" + packet.z, raw);
                 break;
             case "unload_chunk":
-                if(config.misc.chunkCache)serverCache.chunks.delete(packet.chunkX + "-" + packet.chunkZ);
+                if(config.misc.chunkCache)cache.chunks.delete(packet.chunkX + "-" + packet.chunkZ);
                 break;
             case "respawn":
-                Object.assign(serverCache.loginPacket, packet);
-                chunkData = new Map();
-                inventory = [];
+                Object.assign(cache.loginPacket, packet);
+                cache.chunks = new Map();
+                cache.inventory = [];
                 break;
             case "login":
-                serverCache.loginPacket = packet;
+                cache.loginPacket = packet;
                 break;
             case "game_state_change":
-                serverCache.loginPacket.gameMode = packet.gameMode;
-                serverCache.loginPacket.prevGameMode = packet.gameMode;
+                cache.loginPacket.gameMode = packet.gameMode;
+                cache.loginPacket.prevGameMode = packet.gameMode;
                 break;
             case "abilities":
-                serverCache.abilities = raw;
+                cache.abilities = raw;
                 break;
             case "position":
-                serverCache.posPacket = raw;
+                cache.posPacket = raw;
                 break;
             case "set_slot":
                 if(packet.windowId == 0) { 
-                    serverCache.inventory[packet.slot] = packet;
+                    cache.inventory[packet.slot] = packet;
                 }
                 break;
             case 'player_info':
                 if (packet.action == 0){
-                    serverCache.playerInfo = raw;
+                    cache.playerInfo = raw;
                 }
                 break;
         }
     });
 }
 
-function releaseCache(){
-    clientConnection.write('login', serverCache.loginPacket);
-    clientConnection.writeRaw(serverCache.posPacket);
-    clientConnection.writeRaw(serverCache.abilities);
-    clientConnection.writeRaw(serverCache.playerInfo);
-    if(serverCache.inventory.forEach)serverCache.inventory.forEach((slot)=>{
+function releaseCache(connection, cache){
+    connection.write('login', serverCache.loginPacket);
+    connection.writeRaw(serverCache.posPacket);
+    connection.writeRaw(serverCache.abilities);
+    connection.writeRaw(serverCache.playerInfo);
+    if(cache.inventory.forEach)cache.inventory.forEach((slot)=>{
         if(slot != null) {
-            clientConnection.write("set_slot", slot);
+            connection.write("set_slot", slot);
         }
     });
     setTimeout(()=>{
-        if(config.misc.chunkCache)serverCache.chunks.forEach((data) => {
-            clientConnection.writeRaw(data);
+        if(config.misc.chunkCache)cache.chunks.forEach((data) => {
+            connection.writeRaw(data);
         });
     }, 1000);
 }
 
 function parseCommand(cmd){
     function reply(txt){
-        clientConnection.write('chat', {position: 1, message: JSON.stringify({text: txt})});
+        clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
     }
+    reply('&a> '+cmd);
     let args = cmd.split(/ +/g);
     cmd = args.shift();
     if (cmd=='ping'){
-        reply('pong!');
+        reply('&1pong!');
+    }else if (cmd=='eval'&&config.misc.allowEval){
+        try{
+            let z = eval(args.join(' '));
+            if (typeof z == 'object')z = require('util').inspect(z, {depth: 2});
+            z = z.toString().split('\n');
+            for (var k of z){
+                reply('&b'+k);
+            }
+        }catch(e){
+            z = e.stack.toString().split('\n');
+            for (var k of z){
+                reply('&4'+k);
+            }
+        }
     }else{
-        reply('Unknown command.')
+        reply('&6Unknown command.')
     }
 }
 
@@ -161,7 +176,7 @@ function genMotd(){
 
 function createServer(){
     proxyServer = minecraft.createServer({ // create a server for us to connect to
-		'online-mode': false,
+		'online-mode': true,
 		encryption: true,
 		host: '0.0.0.0',
 		port: config.server.port,
@@ -173,13 +188,13 @@ function createServer(){
         }
     });
     proxyServer.on('login', (client)=>{
-        if (config.server.whitelist&&(client.uuid!==serverConnection.uuid))return client.end('\u00A76Unauthorized');
         if (!serverConnection)return client.end('\u00A76Server connection nonexistent');
+        if (config.server.whitelist&&(client.uuid!==serverConnection.uuid))return client.end('\u00A76Unauthorized');
         if (!(state=='queueWaiting'||state=='waiting'||state=='finished')){
             return client.end('\u00A76Invalid state set');
         }
         clientConnection = client;
-        releaseCache();
+        releaseCache(clientConnection, serverCache);
         clientConnection.on('packet', (packet, meta, raw)=>{
             clientToServer(raw, meta, packet);
         })
@@ -238,7 +253,7 @@ function joinServerClient(opts){
                 if (host!='2b2t.org')break;
                 if (state=='finished')break;
                 let sz = JSON.parse(packet.message);
-                if(sz.extra){
+                if(sz.extra&&sz.extra[1]){
                     let posi = Number(sz.extra[1].text);
                     if (posi<=config.discord.notifications.queuePos&&!isClose){
                         isClose=true;
@@ -263,7 +278,7 @@ function joinServerClient(opts){
             serverToClient(raw, meta);
         }
     })
-    startCache();
+    startCache(serverConnection, serverCache);
 }
 
 function authClient(){
