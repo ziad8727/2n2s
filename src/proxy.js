@@ -219,6 +219,7 @@ function returnTo2b(){
     disconnectAux();
     releaseCache(clientConnection, serverCache, true);
     sendAirChunk();
+    reply('&eYou should rejoin if you want to get rid of any scoreboards or boss bars.');
 }
 
 function parseCommand(cmd){
