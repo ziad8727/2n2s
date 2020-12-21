@@ -42,17 +42,32 @@ let auxCache = {
 let auxEnabled = false;
 let redirAuxPackets = false;
 let auxConnection = null;
+let sentTip = false;
 
-let airChunk = new Chunk();
+let endChunk = new Chunk();
+
 for (let x = 0; x < 16; x++) {
     for (let z = 0; z < 16; z++) {
         for (let y = 0; y < 256; y++) {
-            airChunk.setBlockType(new Vec3(x, y, z), mcData.blocksByName.air.id);
-            airChunk.setSkyLight(new Vec3(x, y, z), 0);
+            //endChunk.setBiome(new Vec3(x, y, z), 9)
+            if ((x>=6&&x<=10)){
+                if ((z>=6&&z<=10)){
+                    if (y>237&&y<243){
+                        if ((x==6||z==6||z==10||x==10)||y==242||y==238){
+                            endChunk.setBlockType(new Vec3(x, y, z), y!=238?mcData.blocksByName.concrete.id:mcData.blocksByName.end_portal.id)
+                            endChunk.setBlockData(new Vec3(x, y, z), y!=238?15:0)
+                            endChunk.setSkyLight(new Vec3(x, y, z), 0);
+                            endChunk.setBlockLight(new Vec3(x, y, z), 0);   
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+let airChunk = new Chunk();
+let useEndChunk = false;
 
 let host = '2b2t.org'
 
@@ -73,6 +88,7 @@ function startCache(connection, cache){
                 break;
             case "login":
                 cache.loginPacket = packet;
+                if (useEndChunk)cache.loginPacket.dimension = 0;
                 break;
             case "game_state_change":
                 cache.loginPacket.gameMode = packet.gameMode;
@@ -98,7 +114,7 @@ function startCache(connection, cache){
 }
 
 function releaseCache(connection, cache, noLogin){
-    if (state=='finished')loginPacket.gameMode = 1;
+    if (state=='finished')cache.loginPacket.gameMode = 0;
     if(!noLogin)connection.write('login', cache.loginPacket);
     if(cache.posPacket)connection.writeRaw(cache.posPacket);
     if(cache.abilites)connection.writeRaw(cache.abilities);
@@ -122,19 +138,35 @@ function reply(txt){
     if(clientConnection)clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
 }
 
-function sendAirChunk(){
+function sendChunk(){
+    // Why not bring back the old feels?
+    if (state=='finished')return;
+    if (useEndChunk)sendPos();
     if(clientConnection)clientConnection.write('map_chunk', {
         x: 0,
         z: 0,
         groundUp: true, 
-        bitMap: airChunk.getMask(),
-        chunkData: airChunk.dump(),
+        bitMap: (useEndChunk?endChunk:airChunk).getMask(),
+        chunkData: (useEndChunk?endChunk:airChunk).dump(),
         blockEntities: []
     })
 }
 
+function sendPos(){
+    if(clientConnection){
+        clientConnection.write('position', {
+            x: 8,
+            y: 240,
+            z: 8,
+            yaw: 90,
+            pitch: 0,
+            flags: 0x00
+        })
+    }
+}
+
 function joinAuxServer(ip){
-    if (ip.endsWith('2b2t.org'))return reply('&4No');
+    //if (ip.endsWith('2b2t.org'))return reply('&4No');
     auxEnabled = true;
     log('[CONN]'.green, 'Connecting to', ip);
     log('[CONN]'.green, 'Authenticating into Minecraft');
@@ -176,6 +208,7 @@ function joinAuxServer(ip){
                     redirAuxPackets = true;
                     releaseCache(clientConnection, auxCache, true);
                     log('[CONN]'.green, 'Connected to', ip+'!');
+                    reply('&bConnected.')
                 }
             }else{
                 if (meta.name !== "keep_alive" && meta.name !== "update_time"){
@@ -218,8 +251,11 @@ function returnTo2b(){
     })
     disconnectAux();
     releaseCache(clientConnection, serverCache, true);
-    sendAirChunk();
-    reply('&eYou should rejoin if you want to get rid of any scoreboards or boss bars.');
+    sendChunk();
+    if(!sentTip){
+        reply('&eYou should rejoin if you want to get rid of any scoreboards or boss bars.');
+        sentTip = true;
+    }
 }
 
 function parseCommand(cmd){
@@ -364,6 +400,7 @@ function createServer(){
         }
         clientConnection = client;
         releaseCache(clientConnection, serverCache);
+        if (state!=='finished')sendChunk();
         clientConnection.on('packet', (packet, meta, raw)=>{
             clientToServer(raw, meta, packet);
         })
