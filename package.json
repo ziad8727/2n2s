@@ -17,7 +17,9 @@
   },
   "homepage": "https://github.com/ziad8727/2n2s#readme",
   "dependencies": {
+    "body-parser": "^1.19.0",
     "colors": "^1.4.0",
+    "cookie-session": "^1.4.0",
     "eris": "^0.14.0",
     "express": "^4.17.1",
     "minecraft-data": "^2.70.2",

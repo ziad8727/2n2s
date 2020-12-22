@@ -1,7 +1,5 @@
-const config = require("../config");
 const minecraft = require('minecraft-protocol');
 const tokens = require('prismarine-tokens-fixed');
-const secrets = require("../secrets");
 const mcData = require('minecraft-data')('1.12.2');
 const Chunk = require('prismarine-chunk')('1.12.2');
 const Vec3 = require('vec3');
@@ -54,10 +52,10 @@ for (let x = 0; x < 16; x++) {
                 if ((z>=6&&z<=10)){
                     if (y>237&&y<243){
                         if ((x==6||z==6||z==10||x==10)||y==242||y==238){
-                            endChunk.setBlockType(new Vec3(x, y, z), y!=238?mcData.blocksByName.concrete.id:mcData.blocksByName.end_portal.id)
-                            endChunk.setBlockData(new Vec3(x, y, z), y!=238?15:0)
-                            endChunk.setSkyLight(new Vec3(x, y, z), 0);
-                            endChunk.setBlockLight(new Vec3(x, y, z), 0);   
+                            endChunk.setBlockType(new Vec3(x, y, z), mcData.blocksByName.end_gateway.id)
+                            endChunk.setBlockData(new Vec3(x, y, z), 0)
+                            endChunk.setSkyLight(new Vec3(x, y, z), 15);
+                            endChunk.setBlockLight(new Vec3(x, y, z), 15);   
                         }
                     }
                 }
@@ -67,7 +65,7 @@ for (let x = 0; x < 16; x++) {
 }
 
 let airChunk = new Chunk();
-let useEndChunk = false;
+let useEndChunk = false; // you can enable this if you wish, but its buggy and glitchy clientside :3
 
 let host = '2b2t.org'
 

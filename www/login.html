@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>2n2s Login</title>
+        <style>
+            * {
+                font-family: monospace;
+                color: white;
+            }
+            #container{
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                background: linear-gradient(#446, #355)
+            }
+            #central{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                padding: 20px;
+                background: #0002;
+                border: 1px solid #0000;
+            }
+            #password{
+                background: #0000;
+                border: 1px solid #ccc;
+            }
+            span {
+                font-size: 25px;
+            }
+            #submit{
+                color: black;
+            }
+            @keyframes invalid {
+                0%   {
+                    color: red;
+                    border: 1px solid red;
+                    margin-left: 20px;
+                }
+                10%  {
+                    margin-left: -20px;
+                }
+                20%  {
+                    margin-left: 20px;
+                }
+                30%  {
+                    margin-left: -20px;
+                }
+                40%  {
+                    margin-left: 20px;
+                }
+                50%  {
+                    margin-left: -20px;
+                }
+                60%  {
+                    margin-left: 10px;
+                }
+                70%  {
+                    margin-left: -10px;
+                }
+                80%  {
+                    margin-left: 5px;
+                }
+                90%  {
+                    margin-left: -5px;
+                }
+                100% {
+                    margin-left: 0px;
+                    border: 1px solid #0000;
+                    color: white;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id='container'>
+            <div id='central'>
+                <span>2n2s Login</span><br />
+                <input id='password' type='password' autofocus placeholder='Password'></input>
+                <button id='submit'>Submit</button>
+            </div>
+        </div>
+        <script defer>
+            let pw = document.getElementById('password');
+            let submit = document.getElementById('password');
+            let central = document.getElementById('central');
+            let isWorking = false;
+
+            function failed(){
+                pw.placeholder = 'Invalid Password'
+                central.style.animation = 'invalid 1s 1';
+                setTimeout(()=>{
+                    central.style.animation = '';
+                    pw.placeholder = 'Password';
+                    isWorking = false;
+                }, 1000)
+            }
+
+            async function submitPW(){
+                if (isWorking)return;
+                if (pw.value==='')return;
+                isWorking = true;
+                let z = pw.value+'';
+                pw.value = '';
+                pw.placeholder = 'Working'
+                let resp = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({pass: z})
+                });
+                if (resp.status==204){
+                    location.reload();
+                }else{
+                    failed();
+                }
+            }
+
+            pw.onkeydown = (e)=>{
+                if (e.keyCode==13){
+                    e.preventDefault();
+                    submitPW();
+                }
+            }
+            submit.onclick = submitPW();
+        </script>
+    </body>
+</html>

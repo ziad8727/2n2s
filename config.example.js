@@ -2,7 +2,7 @@ module.exports = {
     web: {
         enabled: true, // If the webserver is even enabled
         port: 8090, // The port to listen for on the webserver
-        password: '2s2n' // Change this to false if you don't want a password, highly recommended to change it
+        password: '2n2s' // Change this to false if you don't want a password, highly recommended to change it
     },
     server: {
         whitelist: true, // Only allow the user that connected to 2b2t directly to connect to the proxy
