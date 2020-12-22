@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>2n2s</title>
+        <style>
+            * {
+                font-family: monospace;
+                color: white;
+            }
+            #container{
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                background: linear-gradient(#446, #355)
+            }
+            #central{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #0002;
+                border: 1px solid #0000;
+            }
+            span {
+                padding: 20px;
+                font-size: 25px;
+            }
+            p {
+                margin: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id='container'>
+            <div id='central'>
+                <span>2n2s Management</span><br /><br />
+                <p id='state'>state: ___</p>
+                <p id='pos'>pos: ___</p>
+                <p id='eta'>eta: ___</p>
+            </div>
+        </div>
+        <script defer>
+            !(async()=>{
+                function getEl(el){ // document.getElementById is too long tbh
+                    return document.getElementById(el)
+                }
+                let istate = getEl('state');
+                let ipos = getEl('pos');
+                let ieta = getEl('eta');
+                
+                let state = null;
+
+                let {token} = await (await fetch('/api/v1/auth/ws')).json();
+                if (token){
+                    let socket = new WebSocket(`ws${location.protocol=='https:'?'s':''}://${location.host}/api/v1/ws`);
+                    socket.onopen = ()=>{
+                        socket.send(JSON.stringify({op: 2, token}));
+                    }
+                    socket.onmessage = (msg)=>{
+                        msg = JSON.parse(msg.data);
+                        istate.innerText = `state: ${msg.state}`;
+                        ipos.innerText = `pos: ${msg.pos?msg.pos:'none'}`;
+                        ieta.innerText = `eta: ${msg.eta?msg.eta:'none'}`;
+                        if (msg.state=='waiting'){
+                            document.title = `2n2s - ${msg.pos}`
+                        }else{
+                            document.title = `2n2s - ${msg.state}`
+                        }
+                        state = msg.state;
+                    }
+                }
+            })();
+        </script>
+    </body>
+</html>

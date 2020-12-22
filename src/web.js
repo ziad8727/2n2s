@@ -1,9 +1,10 @@
 // 2n2s web server
 const Express = require('express');
 const cookieSession = require('cookie-session');
+let app = Express();
+let expressWs = require('express-ws')(app);
 const apiRouter = require('./api.js');
 const path = require('path');
-let app = Express();
 let loginRequired = config.web.password ? config.web.password!='' : false;
 let port = config.web.port || 8090;
 
@@ -32,8 +33,18 @@ if (loginRequired)app.use((req, res, next)=>{
     res.sendFile(path.join(__dirname, '..', 'www', 'login.html'));
 })
 
-app.use(Express.static('../www/'));
+app.use(Express.static(path.join(__dirname, '..', 'www')));
 
 app.listen(port, ()=>{
     log('[INFO]'.green, 'Listening on port', port);
 })
+
+function wsBroadcast(state, pos, eta){
+    let wss = expressWs.getWss();
+    wss.clients.forEach((client)=>{
+        if (client.authenticated) {
+            client.send(JSON.stringify({state, pos, eta}));
+        }
+    });
+}
+global.bcPos = wsBroadcast;

@@ -12,3 +12,8 @@ This is a proxy service which simply waits out the queue of 2b2t and even keep y
 # Usage
 1. Run `node index`.
 2. Navigate to your IP (or localhost) on the port you set (default 8090)
+
+# Attribution
+* [2bored2wait](https://github.com/themoonisacheese/2bored2wait.git) for some base proxy code
+* [flying-squid](https://github.com/PrismarineJS/flying-squid) for the chat parser
+

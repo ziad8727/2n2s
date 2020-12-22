@@ -350,6 +350,9 @@ function updateAct(){
             bot.editAct('2n2s - state: '+state);
         }
     }
+    if (bcPos){
+        bcPos(state, pos, eta);
+    }
     global.proxy = {
         start,
         stop, 
@@ -404,6 +407,7 @@ function createServer(){
         })
         clientConnection.on('end', ()=>{
             if (auxEnabled)disconnectAux();
+            clientConnection = null;
         })
     })
 }
@@ -476,6 +480,7 @@ function joinServerClient(opts){
                     eta = 'NOW';
                     DMNotif(`The queue is complete, your pos is \`${pos}\` with eta \`${eta}\``);
                     updateAct();
+                    if (config.misc.reconnnectOnMiss&&!clientConnection)stop(true);
                     if (auxEnabled)returnTo2b();
                 }
                 break;
@@ -570,6 +575,7 @@ function evalu(e){
     return eval(e);
 }
 
+// SMH moment
 global.proxy = {
     start,
     stop, 
