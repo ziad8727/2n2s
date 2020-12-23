@@ -37,7 +37,7 @@ function startCache(connection, cache){
                 break;
             case "login":
                 cache.loginPacket = packet;
-                if (useEndChunk)cache.loginPacket.dimension = 0;
+                if (config.misc.useEndChunk)cache.loginPacket.dimension = 0;
                 break;
             case "game_state_change":
                 cache.loginPacket.gameMode = packet.gameMode;

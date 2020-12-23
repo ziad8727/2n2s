@@ -51,7 +51,7 @@ for (let x = 0; x < 16; x++) {
 }
 
 let airChunk = new Chunk();
-let useEndChunk = false; // you can enable this if you wish, but its buggy and glitchy clientside :3
+config.misc.useEndChunk = useEndChunk = false; // you can enable this if you wish, but its buggy and glitchy clientside :3
 
 let host = '2b2t.org'
 
@@ -396,7 +396,7 @@ function joinServerClient(opts){
                     eta = 'NOW';
                     DMNotif(`The queue is complete, your pos is \`${pos}\` with eta \`${eta}\``);
                     updateAct();
-                    if (config.misc.reconnnectOnMiss&&!clientConnection)stop(true);
+                    if (config.misc.reconnectOnMiss&&!clientConnection)stop(true);
                     if (auxEnabled)returnTo2b();
                 }
                 break;
