@@ -202,7 +202,7 @@ function parseCommand(cmd){
         }
     }else if (cmd=='help'){
         let msg = [
-            '&6-----------------------------------------',
+            '&6---------------------------------------------',
             '&72n2s Command List',
             '',
             '&ehelp&7: Show this list',
@@ -213,7 +213,7 @@ function parseCommand(cmd){
             '&econnect [ip]&7: [&4Experimental&7] Connects you to another server',
             '&ereturn&7: [&4Experimental&7] Returns back to 2b2t and disconnects',
             '&estop&7: &8Stops the queue. Be very careful!',
-            '&6-----------------------------------------'
+            '&6---------------------------------------------'
         ];
         for (var k of msg){
             reply(k);
@@ -459,6 +459,7 @@ function stop(isReconStop){
     redirAuxPackets = false;
     fpos = null;
     cache.reset(0);
+    queueChecker.reset();
     log('[INFO]'.green, 'Stopped queue.');
     if (isReconStop){
         reconnectAttempts++;

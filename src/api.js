@@ -58,15 +58,36 @@ app.get('/auth/ws', (req, res)=>{
 });
 
 app.post('/start', (req, res)=>{
-
+    let state = proxy.state;
+    if (state=='stopped'||state=='reconnecting'){
+        proxy.start();
+        res.status(204).end();
+    }else{
+        res.status(400).json({code: 400, msg: 'Queue already started!!'});
+    }
 })
 
 app.post('/stop', (req, res)=>{
+    let state = proxy.state;
+    if (state!='stopped'){
+        proxy.stop();
+        res.status(204).end();
+    }else{
+        res.status(400).json({code: 400, msg: 'Queue already stopped!!'});
+    }
+})
 
+app.post('/toggleReconnectOnMiss', (req, res)=>{
+    config.misc.reconnectOnMiss = !config.misc.reconnectOnMiss;
+    res.json({reconnectOnMiss: config.misc.reconnectOnMiss});
 })
 
 app.get('/status', (req, res)=>{
-    res.json({state: proxy.state, pos: proxy.pos, eta: proxy.eta})
+    res.json({state: proxy.state, pos: proxy.pos, eta: proxy.eta, startPos: proxy.fpos, queueSize: queueChecker.size});
+});
+
+app.get('/history', (req, res)=>{
+    res.json({queueSize: queueChecker.lastCheck, posHistory: queueChecker.posHistory})
 })
 
 app.use((req,res)=>{
