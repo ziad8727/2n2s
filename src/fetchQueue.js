@@ -1,6 +1,5 @@
 // fetch stuff from 2b2t.io
 let fetch = require('node-fetch');
-const { reset } = require('./cache');
 
 async function getQueueSize(range='1h'){
     return await (await fetch('https://2b2t.io/api/queue?range='+range)).json();
@@ -15,7 +14,7 @@ async function checkQueue(){
     try{
         lastCheck = await getQueueSize('24h');
         size = lastCheck[0][1];
-        posHistory.push()
+        if (proxy.pos)posHistory.push([lastCheck[0][0],proxy.pos]);
         log('[INFO]'.green, '[Queue Size Checker]'.bold.white, 'Size is', size.toString().bold.yellow);
     }catch(e){
         log('[ERR ]'.bold.red, '[Queue Size Checker]'.bold.white, 'Error occured.');

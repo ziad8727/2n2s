@@ -69,7 +69,59 @@
                 let controlBtn = getEl('control');
                 let whenFinishBtn = getEl('whenfinish');
                 
+                async function endpoint(endpoint, method){
+                    return await fetch('/api/v1/'+endpoint, {method: method});
+                }
+
+                let working = false;
+                controlBtn.onclick = async()=>{
+                    if (working)return;
+                    if (!state)return;
+                    working = true;
+                    controlBtn.innerText = 'Working...';
+                    let res = await endpoint((state=='stopped'||state=='reconnecting')?'start':'stop','POST');
+                    if (res.status!=204){
+                        setBtn();
+                    }
+                    working = false;
+                }
+                whenFinishBtn.onclick = async()=>{
+                    if (working)return;
+                    if (reconnectOnMiss===-1)return;
+                    working = true;
+                    whenFinishBtn.innerText = 'Working...';
+                    let res = await endpoint('toggleReconnectOnMiss','POST');
+                    if (res.status==200){
+                        setFinish({whenFinish:!reconnectOnMiss});
+                    }else{
+                        setFinish({whenFinish:reconnectOnMiss});
+                    }
+                    working = false;
+                }
+                
+                function setFinish(msg){
+                    if (msg.whenFinish===true){ // Smh, do you know why auth op is 2?
+                        whenFin.innerText = 'This connection will terminate on finish if you are not present!'
+                        whenFinishBtn.innerText = 'Do not reconnect on finish if client not present'
+                    }else if (msg.whenFinish===false){
+                        whenFin.innerText = 'This connection will not terminate on finish if you are not present!'
+                        whenFinishBtn.innerText = 'Reconnect on finish if client not present'
+                    }
+                    reconnectOnMiss = msg.whenFinish;
+                }
+
+                function setBtn(){
+                    if (state=='reconnecting'){
+                        controlBtn.innerText = 'Reconnect now'
+                    }else if (state=='stopped'){
+                        controlBtn.innerText = 'Start'
+                    }else{
+                        controlBtn.innerText = 'Stop'
+                    }
+                }
+
                 let state = null;
+                let reconnectOnMiss = -1;
 
                 let {token} = await (await fetch('/api/v1/auth/ws')).json();
                 if (token){
@@ -79,6 +131,11 @@
                     }
                     socket.onmessage = (msg)=>{
                         msg = JSON.parse(msg.data);
+                        if (msg.state=='stopped'){
+                            msg.pos = null;
+                            msg.eta = null;
+                            msg.fpos = null;
+                        }
                         istate.innerText = `state: ${msg.state}`;
                         ipos.innerText = `pos: ${msg.pos?msg.pos:'none'} ${msg.fpos?`(${((msg.fpos-msg.pos)/msg.fpos*100).toFixed(2)}% complete)`:''}`;
                         ieta.innerText = `eta: ${msg.eta?msg.eta:'none'}`;
@@ -89,22 +146,9 @@
                         }else{
                             document.title = `2n2s - ${msg.state}`
                         }
-                        if (msg.whenFinish===true){ // Smh, do you know why auth op is 2?
-                            whenFin.innerText = 'This connection will terminate on finish if you are not present!'
-                            whenFinishBtn.innerText = 'Do not reconnect on finish if client not present'
-                        }else if (msg.whenFinish===false){
-                            whenFin.innerText = 'This connection will not terminate on finish if you are not present!'
-                            whenFinishBtn.innerText = 'Reconnect on finish if client not present'
-                        }
-                        if (state=='reconnecting'){
-                            controlBtn.innerText = 'Reconnect now'
-                        }else if (state=='stopped'){
-                            controlBtn.innerText = 'Start'
-                        }else{
-                            controlBtn.innerText = 'Stop'
-                        }
-                        
+                        setFinish(msg);
                         state = msg.state;
+                        setBtn()
                     }
                 }
             })();

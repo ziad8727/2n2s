@@ -331,6 +331,7 @@ async function DMNotif(txt){
 }
 
 function joinServerClient(opts){
+    if (state=='stopped')return stop();
     serverConnection = minecraft.createClient(opts);
     serverConnection.on('error', (e)=>{
         log('[ERR ]'.bold.red, e.toString());
@@ -362,12 +363,12 @@ function joinServerClient(opts){
                     eta = Math.floor(eh / 60) + "h " + Math.floor(eh % 60) + "m";
                     log('[WAIT]'.blue, `pos: ${pos}, eta: ${eta}`);     
                     updateAct();    
+                    if (!fpos)fpos = pos;
                 }
                 if (state=='queueWaiting'){
                     if (pos&&eta){
                         reconnectAttempts = 0;
                         state = 'waiting';
-                        fpos = posi;
                         updateAct();
                         queueChecker.checkQueue();
                         DMNotif(`The queue has started, your pos is \`${posi}\` with eta \`${eta}\``);
@@ -380,6 +381,8 @@ function joinServerClient(opts){
                 let sz = JSON.parse(packet.message);
                 if(sz.extra&&sz.extra[1]){
                     let posi = Number(sz.extra[1].text);
+                    if (isNaN(posi))return;
+                    if (!fpos)fpos = posi;
                     if (posi<=config.discord.notifications.queuePos&&!isClose){
                         isClose=true;
                         DMNotif(`The queue is nearly complete, your pos is \`${posi}\` with eta \`${eta}\``);
@@ -426,6 +429,7 @@ function start(){
     state = 'serverStarting'
     updateAct();
     createServer();
+    if (state=='stopped')return stop();
     state = 'authenticating'
     updateAct();
     authClient({
@@ -435,6 +439,7 @@ function start(){
         version: mcVer,
         tokensLocation: './data/mctokens.json'
     },(_opts)=>{
+        if (state=='stopped')return stop();
         state = 'clientConnecting';
         updateAct();
         joinServerClient(_opts);
@@ -458,6 +463,8 @@ function stop(isReconStop){
     auxEnabled = false;
     redirAuxPackets = false;
     fpos = null;
+    pos = null;
+    eta = null;
     cache.reset(0);
     queueChecker.reset();
     log('[INFO]'.green, 'Stopped queue.');

@@ -87,7 +87,7 @@ app.get('/status', (req, res)=>{
 });
 
 app.get('/history', (req, res)=>{
-    res.json({queueSize: queueChecker.lastCheck, posHistory: queueChecker.posHistory})
+    res.json({sizeHistory: queueChecker.lastCheck, posHistory: queueChecker.posHistory})
 })
 
 app.use((req,res)=>{
