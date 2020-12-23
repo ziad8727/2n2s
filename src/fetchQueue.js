@@ -32,6 +32,7 @@ function reset(){
 }
 
 let interval = setInterval(checkQueue,60*1000*2) // 2 mins
+checkQueue();
 
 global.queueChecker = {
     getQueueSize, checkQueue,
