@@ -35,7 +35,7 @@ app.ws('/ws', (ws)=>{
                     if (idx==-1)return ws.close(4000, 'Authentication failed.');
                     tokens.splice(idx, 1);
                     ws.authenticated = true;
-                    ws.send(JSON.stringify({state: proxy.state, pos: proxy.pos, eta: proxy.eta}));  
+                    ws.send(JSON.stringify({state: proxy.state, pos: proxy.pos, eta: proxy.eta, fpos: proxy.fpos, size: queueChecker.size, whenFinish: config.misc.reconnectOnMiss}));  
                 } // more later?
             }
         }catch(e){
@@ -56,6 +56,10 @@ app.get('/auth/ws', (req, res)=>{
     tokens.push(tk);
     res.json({token: tk});
 });
+
+app.post('/start', (req, res)=>{
+
+})
 
 app.get('/status', (req, res)=>{
     res.json({state: proxy.state, pos: proxy.pos, eta: proxy.eta})

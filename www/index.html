@@ -19,26 +19,39 @@
                 position: absolute;
                 top: 50%;
                 left: 50%;
+                width: 700px;
                 transform: translate(-50%, -50%);
                 background: #0002;
                 border: 1px solid #0000;
             }
             span {
-                padding: 20px;
                 font-size: 25px;
             }
             p {
                 margin: 10px;
+            }
+            h3 {
+                margin-top: -30px;
+            }
+            button {
+                color: black;
+                margin-left: 10px;
+                margin-bottom: 10px;
             }
         </style>
     </head>
     <body>
         <div id='container'>
             <div id='central'>
-                <span>2n2s Management</span><br /><br />
+                <!-- Imma commit some sins -->
+                <center><span>2n2s Management</span></center><br /><br />
+                <center><h3 id='size'>2b2t queue is ___ players long...</h3></center>
                 <p id='state'>state: ___</p>
                 <p id='pos'>pos: ___</p>
                 <p id='eta'>eta: ___</p>
+                <p id='fpos'>startpos: ___</p>
+                <p id='whenFin'>___</p>
+                <button id='control'>...</button><button id='whenfinish'>...</button>
             </div>
         </div>
         <script defer>
@@ -48,7 +61,13 @@
                 }
                 let istate = getEl('state');
                 let ipos = getEl('pos');
+                let isize = getEl('size');
                 let ieta = getEl('eta');
+                let ifpos = getEl('fpos');
+                let iwhenFin = getEl('whenFin');
+
+                let controlBtn = getEl('control');
+                let whenFinishBtn = getEl('whenfinish');
                 
                 let state = null;
 
@@ -61,13 +80,30 @@
                     socket.onmessage = (msg)=>{
                         msg = JSON.parse(msg.data);
                         istate.innerText = `state: ${msg.state}`;
-                        ipos.innerText = `pos: ${msg.pos?msg.pos:'none'}`;
+                        ipos.innerText = `pos: ${msg.pos?msg.pos:'none'} ${msg.fpos?`(${((msg.fpos-msg.pos)/msg.fpos*100).toFixed(2)}% complete)`:''}`;
                         ieta.innerText = `eta: ${msg.eta?msg.eta:'none'}`;
+                        isize.innerText = `2b2t queue is ${msg.size} players long...`
+                        ifpos.innerText = `startpos: ${msg.fpos?msg.fpos:'none'}`
                         if (msg.state=='waiting'){
                             document.title = `2n2s - ${msg.pos}`
                         }else{
                             document.title = `2n2s - ${msg.state}`
                         }
+                        if (msg.whenFinish===true){ // Smh, do you know why auth op is 2?
+                            whenFin.innerText = 'This connection will terminate on finish if you are not present!'
+                            whenFinishBtn.innerText = 'Do not reconnect on finish if client not present'
+                        }else if (msg.whenFinish===false){
+                            whenFin.innerText = 'This connection will not terminate on finish if you are not present!'
+                            whenFinishBtn.innerText = 'Reconnect on finish if client not present'
+                        }
+                        if (state=='reconnecting'){
+                            controlBtn.innerText = 'Reconnect now'
+                        }else if (state=='stopped'){
+                            controlBtn.innerText = 'Start'
+                        }else{
+                            controlBtn.innerText = 'Stop'
+                        }
+                        
                         state = msg.state;
                     }
                 }

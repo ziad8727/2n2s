@@ -14,6 +14,7 @@ try{
 }
 
 require('./proxy.js');
+require('./fetchQueue.js'); // for the api
 if (config.discord.enabled)require('./discord.js');
 if (config.web.enabled)require('./web.js');
 if (config.misc.queueOnStart)proxy.start();

@@ -39,11 +39,11 @@ app.listen(port, ()=>{
     log('[INFO]'.green, 'Listening on port', port);
 })
 
-function wsBroadcast(state, pos, eta){
+function wsBroadcast(state, pos, eta, fpos){
     let wss = expressWs.getWss();
     wss.clients.forEach((client)=>{
         if (client.authenticated) {
-            client.send(JSON.stringify({state, pos, eta}));
+            client.send(JSON.stringify({state, pos, eta, size: queueChecker.size, fpos}));
         }
     });
 }

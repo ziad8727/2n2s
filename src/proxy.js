@@ -7,11 +7,13 @@ const Chunk = require('prismarine-chunk')(mcVer);
 const Vec3 = require('vec3');
 const parseChat = require('./chatParser.js');
 const cache = require('./cache.js');
+const randoms = require('../randoms.js');
 
 // 2b2t proxy service
 let state = 'stopped';
 let eta = null;
 let pos = null;
+let fpos = null;
 
 let reconnectAttempts = 0;
 
@@ -28,20 +30,25 @@ let redirAuxPackets = false;
 let auxConnection = null;
 let sentTip = false;
 
-let endChunk = new Chunk();
+let reconnectTimeout = null;
 
-for (let x = 0; x < 16; x++) {
-    for (let z = 0; z < 16; z++) {
-        for (let y = 0; y < 256; y++) {
-            //endChunk.setBiome(new Vec3(x, y, z), 9)
-            if ((x>=6&&x<=10)){
-                if ((z>=6&&z<=10)){
-                    if (y>237&&y<243){
-                        if ((x==6||z==6||z==10||x==10)||y==242||y==238){
-                            endChunk.setBlockType(new Vec3(x, y, z), mcData.blocksByName.end_gateway.id)
-                            endChunk.setBlockData(new Vec3(x, y, z), 0)
-                            endChunk.setSkyLight(new Vec3(x, y, z), 15);
-                            endChunk.setBlockLight(new Vec3(x, y, z), 15);   
+config.misc.useEndChunk = useEndChunk = false; // you can enable this if you wish, but its buggy and glitchy clientside :3
+
+if (useEndChunk){
+    var endChunk = new Chunk();
+    for (let x = 0; x < 16; x++) {
+        for (let z = 0; z < 16; z++) {
+            for (let y = 0; y < 256; y++) {
+                //endChunk.setBiome(new Vec3(x, y, z), 9)
+                if ((x>=6&&x<=10)){
+                    if ((z>=6&&z<=10)){
+                        if (y>237&&y<243){
+                            if ((x==6||z==6||z==10||x==10)||y==242||y==238){
+                                endChunk.setBlockType(new Vec3(x, y, z), mcData.blocksByName.end_gateway.id)
+                                endChunk.setBlockData(new Vec3(x, y, z), 0)
+                                endChunk.setSkyLight(new Vec3(x, y, z), 15);
+                                endChunk.setBlockLight(new Vec3(x, y, z), 15);   
+                            }
                         }
                     }
                 }
@@ -51,7 +58,6 @@ for (let x = 0; x < 16; x++) {
 }
 
 let airChunk = new Chunk();
-config.misc.useEndChunk = useEndChunk = false; // you can enable this if you wish, but its buggy and glitchy clientside :3
 
 let host = '2b2t.org'
 
@@ -243,7 +249,8 @@ function clientToServer(raw, meta, pk){
         }
     }
     if (meta.name !== "keep_alive" && meta.name !== "update_time"){
-        (redirAuxPackets?auxConnection:serverConnection).writeRaw(raw);
+        let z = (redirAuxPackets?auxConnection:serverConnection);
+        if (z)z.writeRaw(raw);
     }
 }
 
@@ -267,7 +274,7 @@ function updateAct(){
         }
     }
     if (bcPos){
-        bcPos(state, pos, eta);
+        bcPos(state, pos, eta, fpos);
     }
     global.proxy = {
         start,
@@ -275,24 +282,13 @@ function updateAct(){
         state,
         pos,
         eta,
-        evalu
+        evalu,
+        fpos,
+        updateAct
     }
 }
 
 function genMotd(){
-    let randoms = [
-        '1.13 Soon',
-        '2n2s is full',
-        'how interesting',
-        'DIAMONDS!',
-        'kill or be killed',
-        'Proxy connections disabled due to an exploit.',
-        'welcome to die',
-        'Everyone is a shit',
-        'Real life sucks anyway!',
-        'eat shit and die', // Funny
-        '\u00A74Can\'t connect to server'
-    ]
     return `\u00A77\u00A7o\u00A7l2N \u00A7r\u00A76${randoms[Math.floor(Math.random()*randoms.length)]}\u00A7r\n\u00A77\u00A7o\u00A7l2S \u00A7r\u00A71state: ${state} | pos: ${pos?pos:'none'} | eta: ${eta?eta:'none'}`
 }
 
@@ -371,7 +367,9 @@ function joinServerClient(opts){
                     if (pos&&eta){
                         reconnectAttempts = 0;
                         state = 'waiting';
+                        fpos = posi;
                         updateAct();
+                        queueChecker.checkQueue();
                         DMNotif(`The queue has started, your pos is \`${posi}\` with eta \`${eta}\``);
                     }
                 }
@@ -424,6 +422,7 @@ function authClient(opts, cb, errCb){
 function start(){
     // Start the queue
     log('[INFO]'.green, `Starting queue.`);
+    if (reconnectTimeout)clearTimeout(reconnectTimeout);
     state = 'serverStarting'
     updateAct();
     createServer();
@@ -444,6 +443,7 @@ function start(){
 function stop(isReconStop){
     // End the queue
     log('[INFO]'.green, `Stopping queue.`);
+    if (reconnectTimeout)clearTimeout(reconnectTimeout);
     if(clientConnection)clientConnection.end('\u00a76Queue was stopped');
     if(proxyServer)proxyServer.close();
     proxyServer = null;
@@ -457,14 +457,15 @@ function stop(isReconStop){
     isClose = false;
     auxEnabled = false;
     redirAuxPackets = false;
-    cache.reset();
+    fpos = null;
+    cache.reset(0);
     log('[INFO]'.green, 'Stopped queue.');
     if (isReconStop){
         reconnectAttempts++;
         let time = reconnectAttempts*30;
         if (time>120)time=120;
         log('[INFO]'.green, `Reconnecting in ${time}s...`);
-        setTimeout(()=>{
+        reconnectTimeout = setTimeout(()=>{
             log('[INFO]'.green, `Reconnecting...`);
             start();
         }, time*1000)
@@ -484,5 +485,7 @@ global.proxy = {
     state,
     pos,
     eta,
-    evalu
+    evalu,
+    fpos,
+    updateAct
 }
