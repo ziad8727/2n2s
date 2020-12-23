@@ -211,7 +211,7 @@
                 async function getHist(){
                     let {posHistory, sizeHistory} = await (await endpoint('history')).json();
                     // We should only use the times we have so its a bit of a waste.. but whatever
-                    if (state!='stopped'){
+                    if (state!='stopped'&&posHistory[0]){
                         let labels = posHistory.map(c=>new Date(c[0]*1000));
                         cfg.data.labels = labels;
                         let data0 = sizeHistory.filter(c=>c).slice(0, posHistory.length).map(c=>c[1])
