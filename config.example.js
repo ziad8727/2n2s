@@ -21,7 +21,7 @@ module.exports = {
         log: true, // Enable logging to console?
         queueOnStart: false, // Start queuing on startup. This has to be enabled if web and discord are disabled.
         reconnectOnMiss: false, // If you are not present when the server connects you in, reconnect to start the queue again
-        antiAFK: true, // Some kind of anti afk system. Don't count on it working well.
+        antiAFK: true, // Some kind of anti afk system. Don't count on it working well. [Not implemented yet]
         chunkCache: true, // Cache the map and other things. Recommended that you don't touch this.
         allowEval: false // This allows you to execute code. Only enable if you know what you're doing.
     }
