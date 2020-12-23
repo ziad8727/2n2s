@@ -13,6 +13,10 @@ This is a proxy service which simply waits out the queue of 2b2t and even keep y
 1. Run `node index`.
 2. Navigate to your IP (or localhost) on the port you set (default 8090) for web, let it start on its own, or check the discord bot. 
 
+# Notice
+This may be buggy. Just be careful there and report any bugs by creating an issue. Thanks.
+Also, randoms.js may contain vulgar content you may not agree with. Remove its contents if you wish.
+
 # Attribution
 * [2bored2wait](https://github.com/themoonisacheese/2bored2wait.git) for some base proxy code
 * [flying-squid](https://github.com/PrismarineJS/flying-squid) for the chat parser
