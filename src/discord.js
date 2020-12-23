@@ -40,6 +40,16 @@ bot.on("messageCreate", (msg) => {
                 bot.createMessage(msg.channel.id, '```js\n'+e.toString()+'```');
             }
         }
+        if (cmd=='stop'){
+            if (proxy.state!='stopped'){
+                proxy.stop();
+                bot.createMessage(msg.channel.id, 'Stopped the queue');
+            }else if (proxy.state=='reconnecting'){
+                bot.createMessage(msg.channel.id, 'Cannot stop while in RECONNECTING state');
+            }else{
+                bot.createMessage(msg.channel.id, 'Queue is not started');
+            }
+        }
     }
 });
 bot.connect();

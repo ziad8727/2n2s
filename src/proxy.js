@@ -1,9 +1,12 @@
+let mcVer = '1.12.2';
+
 const minecraft = require('minecraft-protocol');
 const tokens = require('prismarine-tokens-fixed');
-const mcData = require('minecraft-data')('1.12.2');
-const Chunk = require('prismarine-chunk')('1.12.2');
+const mcData = require('minecraft-data')(mcVer);
+const Chunk = require('prismarine-chunk')(mcVer);
 const Vec3 = require('vec3');
 const parseChat = require('./chatParser.js');
+const cache = require('./cache.js');
 
 // 2b2t proxy service
 let state = 'stopped';
@@ -20,23 +23,6 @@ let oldState = null;
 let twTime = null;
 let isClose = false;
 
-let serverCache = {
-    chunks: new Map(),
-    inventory: [],
-    abilities: null,
-    loginPacket: null,
-    posPacket: null,
-    playerInfo: null
-}
-
-let auxCache = {
-    chunks: new Map(),
-    inventory: [],
-    abilities: null,
-    loginPacket: null,
-    posPacket: null,
-    playerInfo: null
-}
 let auxEnabled = false;
 let redirAuxPackets = false;
 let auxConnection = null;
@@ -68,69 +54,6 @@ let airChunk = new Chunk();
 let useEndChunk = false; // you can enable this if you wish, but its buggy and glitchy clientside :3
 
 let host = '2b2t.org'
-
-function startCache(connection, cache){
-    connection.on('packet', (packet, meta, raw)=>{
-        switch (meta.name) {
-            case "map_chunk":
-                if(config.misc.chunkCache)cache.chunks.set(packet.x + "-" + packet.z, raw);
-                break;
-            case "unload_chunk":
-                if(config.misc.chunkCache)cache.chunks.delete(packet.chunkX + "-" + packet.chunkZ);
-                break;
-            case "respawn":
-                Object.assign(cache.loginPacket, packet);
-                cache.loginPacket.gameMode = packet.gamemode
-                cache.chunks = new Map();
-                cache.inventory = [];
-                break;
-            case "login":
-                cache.loginPacket = packet;
-                if (useEndChunk)cache.loginPacket.dimension = 0;
-                break;
-            case "game_state_change":
-                cache.loginPacket.gameMode = packet.gameMode;
-                break;
-            case "abilities":
-                cache.abilities = raw;
-                break;
-            case "position":
-                cache.posPacket = raw;
-                break;
-            case "set_slot":
-                if(packet.windowId == 0) { 
-                    cache.inventory[packet.slot] = packet;
-                }
-                break;
-            case 'player_info':
-                if (packet.action == 0){
-                    cache.playerInfo = raw;
-                }
-                break;
-        }
-    });
-}
-
-function releaseCache(connection, cache, noLogin){
-    if (state=='finished')cache.loginPacket.gameMode = 0;
-    if(!noLogin)connection.write('login', cache.loginPacket);
-    if(cache.posPacket)connection.writeRaw(cache.posPacket);
-    if(cache.abilites)connection.writeRaw(cache.abilities);
-    if(cache.playerInfo)connection.writeRaw(cache.playerInfo);
-    if(cache.inventory&&cache.inventory.forEach)cache.inventory.forEach((slot)=>{
-        if(slot != null) {
-            connection.write("set_slot", slot);
-        }
-    });
-    setTimeout(()=>{
-        if(config.misc.chunkCache&&cache.chunks)cache.chunks.forEach((data) => {
-            connection.writeRaw(data);
-        });
-        if (state=='finished'){
-            connection.write('game_state_change', {reason: 3, gameMode: 0});
-        }
-    }, 1000);
-}
 
 function reply(txt){
     if(clientConnection)clientConnection.write('chat', {position: 1, message: JSON.stringify(parseChat(txt))});
@@ -172,7 +95,7 @@ function joinAuxServer(ip){
         host: ip,
         username: secrets.mc.email,
         password: secrets.mc.password,
-        version: '1.12.2',
+        version: mcVer,
         tokensLocation: './data/mctokens.json'
     },(_opts)=>{
         auxConnection = minecraft.createClient(_opts);
@@ -190,13 +113,13 @@ function joinAuxServer(ip){
                 auxEnabled = false;
             }
         });
-        startCache(auxConnection, auxCache);
+        cache.start(auxConnection, cache.auxCache);
         auxConnection.on('packet', (packet, meta, raw)=>{
             if (meta.name=='kick_disconnect'){
                 return reply('&eYou got kicked for \''+JSON.parse(packet.reason).text+"'");
             }
             if (!redirAuxPackets){
-                if (auxCache.loginPacket){
+                if (cache.auxCache.loginPacket){
                     clientConnection.write('respawn', {
                         dimension: auxCache.loginPacket.dimension,
                         difficulty: auxCache.loginPacket.difficulty,
@@ -204,7 +127,7 @@ function joinAuxServer(ip){
                         levelType: auxCache.loginPacket.levelType
                     })
                     redirAuxPackets = true;
-                    releaseCache(clientConnection, auxCache, true);
+                    cache.release(clientConnection, cache.auxCache, true);
                     log('[CONN]'.green, 'Connected to', ip+'!');
                     reply('&bConnected.')
                 }
@@ -227,14 +150,7 @@ function disconnectAux(){
     if(auxConnection)auxConnection.end();
     auxEnabled = false;
     auxConnection = null;
-    auxCache = {
-        chunks: new Map(),
-        inventory: [],
-        abilities: null,
-        loginPacket: null,
-        posPacket: null,
-        playerInfo: null
-    }
+    cache.reset(1);
 }
 
 function returnTo2b(){
@@ -242,13 +158,13 @@ function returnTo2b(){
     auxEnabled = false;
     redirAuxPackets = false;
     clientConnection.write('respawn', {
-        dimension: serverCache.loginPacket.dimension,
-        difficulty: serverCache.loginPacket.difficulty,
-        gamemode: serverCache.loginPacket.gameMode,
-        levelType: serverCache.loginPacket.levelType
+        dimension: cache.serverCache.loginPacket.dimension,
+        difficulty: cache.serverCache.loginPacket.difficulty,
+        gamemode: cache.serverCache.loginPacket.gameMode,
+        levelType: cache.serverCache.loginPacket.levelType
     })
     disconnectAux();
-    releaseCache(clientConnection, serverCache, true);
+    cache.release(clientConnection, cache.serverCache, true);
     sendChunk();
     if(!sentTip){
         reply('&eYou should rejoin if you want to get rid of any scoreboards or boss bars.');
@@ -386,7 +302,7 @@ function createServer(){
 		encryption: true,
 		host: '0.0.0.0',
 		port: config.server.port,
-		version: '1.12.2',
+		version: mcVer,
         'max-players': 1,
         beforePing: (r)=>{
             r.description.text = genMotd();
@@ -400,7 +316,7 @@ function createServer(){
             return client.end('\u00A76Invalid state set');
         }
         clientConnection = client;
-        releaseCache(clientConnection, serverCache);
+        cache.release(clientConnection, cache.serverCache);
         if (state!=='finished')sendChunk();
         clientConnection.on('packet', (packet, meta, raw)=>{
             clientToServer(raw, meta, packet);
@@ -492,7 +408,7 @@ function joinServerClient(opts){
             serverToClient(raw, meta);
         }
     })
-    startCache(serverConnection, serverCache);
+    cache.start(serverConnection, cache.serverCache);
 }
 
 function authClient(opts, cb, errCb){
@@ -517,7 +433,7 @@ function start(){
         host: host, // allow to change this?
         username: secrets.mc.email,
         password: secrets.mc.password,
-        version: '1.12.2',
+        version: mcVer,
         tokensLocation: './data/mctokens.json'
     },(_opts)=>{
         state = 'clientConnecting';
@@ -541,21 +457,7 @@ function stop(isReconStop){
     isClose = false;
     auxEnabled = false;
     redirAuxPackets = false;
-    serverCache = {
-        chunks: new Map(),
-        inventory: {},
-        abilities: null,
-        loginPacket: null,
-        posPacket: null 
-    }
-    auxCache = {
-        chunks: new Map(),
-        inventory: [],
-        abilities: null,
-        loginPacket: null,
-        posPacket: null,
-        playerInfo: null
-    }
+    cache.reset();
     log('[INFO]'.green, 'Stopped queue.');
     if (isReconStop){
         reconnectAttempts++;
