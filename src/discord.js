@@ -48,6 +48,20 @@ bot.on("messageCreate", (msg) => {
                 bot.createMessage(msg.channel.id, 'Queue is not started');
             }
         }
+        if (cmd=='help'){
+            let hlmsg = '';
+            hlmsg+='**2n2s Discord Command List**'
+            hlmsg+='\n\n'
+            if (config.misc.allowEval){
+                hlmsg+='`eval`: Eval JS in the discord context\n'
+                hlmsg+='`evalproxy`: Eval JS in the proxy context\n'
+            }
+            hlmsg+='`start`: Start the queue\n';
+            hlmsg+='`stop`: Stop the queue\n';
+            hlmsg+='`info`: Show current status\n';
+            hlmsg+='`help`: Show this help';
+            bot.createMessage(msg.channel.id, hlmsg);
+        }
     }
 });
 bot.connect();
