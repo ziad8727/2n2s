@@ -61,6 +61,10 @@ app.post('/start', (req, res)=>{
 
 })
 
+app.post('/stop', (req, res)=>{
+
+})
+
 app.get('/status', (req, res)=>{
     res.json({state: proxy.state, pos: proxy.pos, eta: proxy.eta})
 })
