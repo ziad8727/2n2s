@@ -19,7 +19,7 @@
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                width: 700px;
+                width: 710px;
                 transform: translate(-50%, -50%);
                 background: #0002;
                 border: 1px solid #0000;
@@ -39,6 +39,8 @@
                 margin-bottom: 10px;
             }
         </style>
+        <script src='/lib/moment.min.js'></script>
+        <script src='/lib/Chart.min.js'></script>
     </head>
     <body>
         <div id='container'>
@@ -51,6 +53,7 @@
                 <p id='eta'>eta: ___</p>
                 <p id='fpos'>startpos: ___</p>
                 <p id='whenFin'>___</p>
+                <canvas id='graph'></canvas><br />
                 <button id='control'>...</button><button id='whenfinish'>...</button>
             </div>
         </div>
@@ -69,7 +72,7 @@
                 let controlBtn = getEl('control');
                 let whenFinishBtn = getEl('whenfinish');
                 
-                async function endpoint(endpoint, method){
+                async function endpoint(endpoint, method='GET'){
                     return await fetch('/api/v1/'+endpoint, {method: method});
                 }
 
@@ -109,7 +112,7 @@
                     }
                     reconnectOnMiss = msg.whenFinish;
                 }
-
+                let oldState = null;
                 function setBtn(){
                     if (state=='reconnecting'){
                         controlBtn.innerText = 'Reconnect now'
@@ -118,6 +121,7 @@
                     }else{
                         controlBtn.innerText = 'Stop'
                     }
+                    
                 }
 
                 let state = null;
@@ -147,10 +151,84 @@
                             document.title = `2n2s - ${msg.state}`
                         }
                         setFinish(msg);
+                        if (oldState!=msg.state){
+                            oldState = state;
+                            getHist();
+                        }
                         state = msg.state;
                         setBtn()
                     }
                 }
+
+                let ctx = getEl('graph').getContext('2d');
+                let blue = 'rgb(54, 162, 235)';
+                let green = 'rgb(75, 192, 192)';
+                Chart.defaults.global.defaultFontFamily = 'monospace';
+                Chart.defaults.global.defaultFontColor = '#ccc';
+                let cfg = {
+                    responsive: false,
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'queue size',
+                            backgroundColor: blue,
+                            borderColor: blue,
+                            data: [],
+                            fill: false
+                        },{
+                            label: 'queue pos',
+                            backgroundColor: green,
+                            borderColor: green,
+                            data: [],
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        title: {
+                            text: 'Queue Position & Size'
+                        },
+                        scales: {
+                            xAxes: [{
+                                type: 'time',
+                                time: {
+                                    parser: 'MM/DD/YYYY HH:mm',
+                                    tooltipFormat: 'll HH:mm'
+                                },
+                                scaleLabel: {
+                                    display: false
+                                }
+                            }],
+                            yAxes: [{
+                                scaleLabel: {
+                                    display: false
+                                }
+                            }]
+                        }
+                    }
+                }
+                let chart = new Chart(ctx, cfg);
+                async function getHist(){
+                    let {posHistory, sizeHistory} = await (await endpoint('history')).json();
+                    // We should only use the times we have so its a bit of a waste.. but whatever
+                    if (state=='waiting'){
+                        let labels = posHistory.map(c=>new Date(c[0]*1000));
+                        cfg.data.labels = labels;
+                        let data0 = sizeHistory.filter(c=>c).slice(0, posHistory.length).map(c=>c[1]).reverse();
+                        let data1 = posHistory.map(c=>c[1]);
+                        cfg.data.datasets[0].data = data0;
+                        cfg.data.datasets[1].data = data1;
+                        chart.update();
+                    }else{
+                        let labels = sizeHistory.filter(c=>c).map(c=>new Date(c[0]*1000));
+                        cfg.data.labels = labels;
+                        let data0 = sizeHistory.filter(c=>c).map(c=>c[1]).reverse();
+                        cfg.data.datasets[0].data = data0;
+                        cfg.data.datasets[1].data = [];
+                        chart.update();
+                    }
+                }
+                setInterval(getHist,2*60*1000);getHist();
             })();
         </script>
     </body>

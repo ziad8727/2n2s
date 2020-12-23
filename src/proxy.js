@@ -467,6 +467,7 @@ function stop(isReconStop){
     eta = null;
     cache.reset(0);
     queueChecker.reset();
+    queueChecker.posHistory = [];
     log('[INFO]'.green, 'Stopped queue.');
     if (isReconStop){
         reconnectAttempts++;

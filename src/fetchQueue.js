@@ -14,7 +14,7 @@ async function checkQueue(){
     try{
         lastCheck = await getQueueSize('24h');
         size = lastCheck[0][1];
-        if (proxy.pos)posHistory.push([lastCheck[0][0],proxy.pos]);
+        if (proxy.state=='waiting'&&proxy.pos)posHistory.push([lastCheck[0][0],Number(proxy.pos)]);
         log('[INFO]'.green, '[Queue Size Checker]'.bold.white, 'Size is', size.toString().bold.yellow);
     }catch(e){
         log('[ERR ]'.bold.red, '[Queue Size Checker]'.bold.white, 'Error occured.');
@@ -28,8 +28,6 @@ async function checkQueue(){
 }
 
 function reset(){
-    size = 0;
-    lastCheck = [];
     posHistory = [];
 }
 
