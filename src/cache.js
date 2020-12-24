@@ -63,7 +63,7 @@ function startCache(connection, cache){
 }
 
 function releaseCache(connection, cache, noLogin){
-    if (state=='finished')cache.loginPacket.gameMode = 0;
+    if (proxy.state=='finished')cache.loginPacket.gameMode = 0;
     if(!noLogin)connection.write('login', cache.loginPacket);
     if(cache.posPacket)connection.writeRaw(cache.posPacket);
     if(cache.abilites)connection.writeRaw(cache.abilities);
@@ -77,7 +77,7 @@ function releaseCache(connection, cache, noLogin){
         if(config.misc.chunkCache&&cache.chunks)cache.chunks.forEach((data) => {
             connection.writeRaw(data);
         });
-        if (state=='finished'){
+        if (proxy.state=='finished'){
             connection.write('game_state_change', {reason: 3, gameMode: 0});
         }
     }, 1000);
