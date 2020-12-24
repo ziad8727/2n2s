@@ -29,6 +29,7 @@ let auxEnabled = false;
 let redirAuxPackets = false;
 let auxConnection = null;
 let sentTip = false;
+let posHistory = [];
 
 let reconnectTimeout = null;
 
@@ -284,7 +285,8 @@ function updateAct(){
         eta,
         evalu,
         fpos,
-        updateAct
+        updateAct,
+        posHistory
     }
 }
 
@@ -364,6 +366,7 @@ function joinServerClient(opts){
                     log('[WAIT]'.blue, `pos: ${pos}, eta: ${eta}`);     
                     updateAct();    
                     if (!fpos)fpos = pos;
+                    posHistory.push([Math.floor(Date.now()/1000), pos]);
                 }
                 if (state=='queueWaiting'){
                     if (pos&&eta){
@@ -466,8 +469,7 @@ function stop(isReconStop){
     pos = null;
     eta = null;
     cache.reset(0);
-    queueChecker.reset();
-    queueChecker.posHistory = [];
+    posHistory = [];
     log('[INFO]'.green, 'Stopped queue.');
     if (isReconStop){
         reconnectAttempts++;
@@ -496,5 +498,6 @@ global.proxy = {
     eta,
     evalu,
     fpos,
-    updateAct
+    updateAct,
+    posHistory
 }
