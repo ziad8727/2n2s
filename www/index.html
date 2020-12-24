@@ -214,7 +214,7 @@
                     if (state!='stopped'&&posHistory[0]){
                         let labels = posHistory.map(c=>new Date(c[0]*1000));
                         cfg.data.labels = labels;
-                        let data0 = sizeHistory.map(c=>c[1]?c:[c[0], 0]).slice(0, posHistory.length).map(c=>{return {x: (new Date(c[0]*1000)), y: c[1]}});
+                        let data0 = sizeHistory.filter(c=>c[0]>=posHistory[0][0]).map(c=>c[1]?c:[c[0], 0]).map(c=>{return {x: (new Date(c[0]*1000)), y: c[1]}});
                         let data1 = posHistory.map(c=>{return {x: (new Date(c[0]*1000)), y: c[1]}});
                         cfg.data.datasets[0].data = data0;
                         cfg.data.datasets[1].data = data1;
