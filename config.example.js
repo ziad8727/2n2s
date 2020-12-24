@@ -6,7 +6,8 @@ module.exports = {
     },
     server: {
         whitelist: true, // Only allow the user that connected to 2b2t directly to connect to the proxy
-        port: 25537 // The port the minecraft server proxy listens on
+        port: 25537, // The port the minecraft server proxy listens on
+        onlineMode: true // To enable online mode on the proxy server
     },
     discord: {
         enabled: true, // Enable the discord bot?

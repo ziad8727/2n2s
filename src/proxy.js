@@ -296,8 +296,8 @@ function genMotd(){
 
 function createServer(){
     proxyServer = minecraft.createServer({ // create a server for us to connect to
-		'online-mode': true,
-		encryption: true,
+		'online-mode': config.server.onlineMode,
+		encryption: config.server.onlineMode,
 		host: '0.0.0.0',
 		port: config.server.port,
 		version: mcVer,
@@ -309,7 +309,7 @@ function createServer(){
     });
     proxyServer.on('login', (client)=>{
         if (!serverConnection)return client.end('\u00A76Server connection nonexistent');
-        if (config.server.whitelist&&(client.uuid!==serverConnection.uuid))return client.end('\u00A76Unauthorized');
+        if (config.server.onlineMode&&config.server.whitelist&&(client.uuid!==serverConnection.uuid))return client.end('\u00A76Unauthorized');
         if (!(state=='queueWaiting'||state=='waiting'||state=='finished')){
             return client.end('\u00A76Invalid state set');
         }
