@@ -19,7 +19,7 @@
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                width: 710px;
+                width: 1010px;
                 transform: translate(-50%, -50%);
                 background: #0002;
                 border: 1px solid #0000;
@@ -211,7 +211,6 @@
                 async function getHist(){
                     let {posHistory, sizeHistory} = await (await endpoint('history')).json();
                     // We should only use the times we have so its a bit of a waste.. but whatever
-                    //sizeHistory = sizeHistory.reverse();
                     if (state!='stopped'&&posHistory[0]){
                         let labels = posHistory.map(c=>new Date(c[0]*1000));
                         cfg.data.labels = labels;
@@ -221,9 +220,9 @@
                         cfg.data.datasets[1].data = data1;
                         chart.update();
                     }else{
-                        let labels = sizeHistory.filter(c=>c).reverse().map(c=>new Date(c[0]*1000));
+                        let labels = sizeHistory.filter(c=>c).map(c=>new Date(c[0]*1000));
                         cfg.data.labels = labels;
-                        let data0 = sizeHistory.filter(c=>c).reverse().map(c=>c[1]);
+                        let data0 = sizeHistory.filter(c=>c).map(c=>c[1]);
                         cfg.data.datasets[0].data = data0;
                         cfg.data.datasets[1].data = [];
                         chart.update();
